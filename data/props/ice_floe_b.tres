@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="PropDef" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_1sx1q"]
+
+[resource]
+script = ExtResource("1_1sx1q")
+id = &"ice_floe_b"
+blocking = false
+placement = 1
+collision_size = Vector2(0, 0)

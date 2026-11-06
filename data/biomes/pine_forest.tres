@@ -1,0 +1,131 @@
+[gd_resource type="Resource" script_class="BiomeData" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_rbvpa"]
+[ext_resource type="Resource" path="res://data/props/pine_huge.tres" id="2_ago06"]
+[ext_resource type="Resource" path="res://data/props/pine.tres" id="3_qlyfk"]
+[ext_resource type="Resource" path="res://data/props/pine_tall.tres" id="4_mc4k3"]
+[ext_resource type="Resource" path="res://data/props/pine_bush_big.tres" id="5_nd2rh"]
+[ext_resource type="Script" path="res://src/dungeon/prop_rule.gd" id="6_1no7v"]
+[ext_resource type="Resource" path="res://data/props/pine_sapling.tres" id="7_42xmm"]
+[ext_resource type="Resource" path="res://data/props/pine_shrub.tres" id="8_wdt8x"]
+[ext_resource type="Resource" path="res://data/props/pine_bush.tres" id="9_u8bla"]
+[ext_resource type="Resource" path="res://data/props/fern.tres" id="10_oif4w"]
+[ext_resource type="Resource" path="res://data/props/weeds.tres" id="11_tx4me"]
+[ext_resource type="Resource" path="res://data/props/mushroom_brown.tres" id="12_fjwjw"]
+[ext_resource type="Resource" path="res://data/props/pine_stump.tres" id="13_e1wya"]
+[ext_resource type="Resource" path="res://data/props/pine_log.tres" id="14_8g4an"]
+[ext_resource type="Resource" path="res://data/props/pine_log_mossy.tres" id="15_cevp6"]
+[ext_resource type="Resource" path="res://data/props/rock_small.tres" id="16_m0hmv"]
+[ext_resource type="Resource" path="res://data/props/reeds.tres" id="17_svhrm"]
+[ext_resource type="Resource" path="res://data/props/reeds_tall.tres" id="18_8fmce"]
+[ext_resource type="Resource" path="res://data/props/lily.tres" id="19_ox7wy"]
+[ext_resource type="Resource" path="res://data/props/lily_flower.tres" id="20_peo47"]
+[ext_resource type="Script" path="res://src/dungeon/biome_data.gd" id="21_lkjgh"]
+[ext_resource type="Resource" path="res://data/themes/pine.tres" id="22_jr07v"]
+
+[sub_resource type="Resource" id="Resource_c844e"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("3_qlyfk")
+density = 0.025
+clustering = 0.85
+
+[sub_resource type="Resource" id="Resource_nechj"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("4_mc4k3")
+density = 0.03
+clustering = 0.8
+
+[sub_resource type="Resource" id="Resource_nn8je"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("2_ago06")
+density = 0.006
+clustering = 0.9
+
+[sub_resource type="Resource" id="Resource_sup65"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("7_42xmm")
+density = 0.01
+clustering = 0.5
+
+[sub_resource type="Resource" id="Resource_huyrw"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("8_wdt8x")
+density = 0.01
+clustering = 0.6
+
+[sub_resource type="Resource" id="Resource_um1ul"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("9_u8bla")
+density = 0.012
+clustering = 0.6
+
+[sub_resource type="Resource" id="Resource_4kob5"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("10_oif4w")
+density = 0.025
+clustering = 0.5
+
+[sub_resource type="Resource" id="Resource_ilakx"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("11_tx4me")
+clustering = 0.2
+
+[sub_resource type="Resource" id="Resource_e8fqc"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("12_fjwjw")
+density = 0.008
+clustering = 0.7
+
+[sub_resource type="Resource" id="Resource_fmvd5"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("13_e1wya")
+density = 0.004
+clustering = 0.2
+
+[sub_resource type="Resource" id="Resource_i11b2"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("14_8g4an")
+density = 0.004
+clustering = 0.2
+
+[sub_resource type="Resource" id="Resource_bdjuh"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("15_cevp6")
+density = 0.003
+clustering = 0.3
+
+[sub_resource type="Resource" id="Resource_bfw34"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("16_m0hmv")
+density = 0.006
+
+[sub_resource type="Resource" id="Resource_d5nny"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("17_svhrm")
+density = 0.04
+
+[sub_resource type="Resource" id="Resource_ollbr"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("18_8fmce")
+
+[sub_resource type="Resource" id="Resource_2egh4"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("19_ox7wy")
+density = 0.03
+
+[sub_resource type="Resource" id="Resource_xmrc5"]
+script = ExtResource("6_1no7v")
+prop = ExtResource("20_peo47")
+density = 0.01
+
+[resource]
+script = ExtResource("21_lkjgh")
+id = &"pine_forest"
+display_name = "Хвойный лес"
+border_props = Array[ExtResource("1_rbvpa")]([ExtResource("2_ago06"), ExtResource("3_qlyfk"), ExtResource("4_mc4k3"), ExtResource("5_nd2rh")])
+elevation_amount = 0.25
+lake_amount = 0.05
+bridge_width = 1
+props = Array[ExtResource("6_1no7v")]([SubResource("Resource_c844e"), SubResource("Resource_nechj"), SubResource("Resource_nn8je"), SubResource("Resource_sup65"), SubResource("Resource_huyrw"), SubResource("Resource_um1ul"), SubResource("Resource_4kob5"), SubResource("Resource_ilakx"), SubResource("Resource_e8fqc"), SubResource("Resource_fmvd5"), SubResource("Resource_i11b2"), SubResource("Resource_bdjuh"), SubResource("Resource_bfw34"), SubResource("Resource_d5nny"), SubResource("Resource_ollbr"), SubResource("Resource_2egh4"), SubResource("Resource_xmrc5")])
+tile_theme = ExtResource("22_jr07v")
+tint = Color(0.94, 0.98, 0.96, 1)

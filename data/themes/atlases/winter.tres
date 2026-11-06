@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="PropAtlas" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/render/prop_atlas.gd" id="1_efokt"]
+[ext_resource type="Texture2D" path="res://tiles/Sprout Lands - Sorry pack/Early Access/Sprout winter/winter sprites.png" id="2_j4gra"]
+
+[resource]
+script = ExtResource("1_efokt")
+texture = ExtResource("2_j4gra")
+tiles = Dictionary[StringName, Rect2i]({
+&"snow_pile": Rect2i(3, 3, 1, 1),
+&"snow_pile_big": Rect2i(4, 3, 1, 1),
+&"snow_pine": Rect2i(1, 3, 2, 2),
+&"snow_pine_huge": Rect2i(3, 0, 3, 3),
+&"snow_pine_huge_b": Rect2i(6, 0, 3, 3),
+&"snow_pine_tall": Rect2i(0, 3, 1, 2)
+})

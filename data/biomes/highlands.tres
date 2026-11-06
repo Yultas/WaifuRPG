@@ -1,0 +1,76 @@
+[gd_resource type="Resource" script_class="BiomeData" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_qcrnt"]
+[ext_resource type="Script" path="res://src/dungeon/prop_rule.gd" id="2_c1sfm"]
+[ext_resource type="Resource" path="res://data/props/rock_big.tres" id="3_eenjo"]
+[ext_resource type="Resource" path="res://data/props/rock_small.tres" id="4_2271s"]
+[ext_resource type="Resource" path="res://data/props/tree_small.tres" id="5_1caem"]
+[ext_resource type="Resource" path="res://data/props/bush.tres" id="6_uw0vf"]
+[ext_resource type="Resource" path="res://data/props/sunflower.tres" id="7_5ksy4"]
+[ext_resource type="Resource" path="res://data/props/flower_yellow.tres" id="8_h2a0u"]
+[ext_resource type="Resource" path="res://data/props/stump.tres" id="9_m47nq"]
+[ext_resource type="Resource" path="res://data/props/sprout.tres" id="10_vhh6s"]
+[ext_resource type="Script" path="res://src/dungeon/biome_data.gd" id="11_qwh1d"]
+[ext_resource type="Resource" path="res://data/themes/meadow.tres" id="12_i1xs4"]
+
+[sub_resource type="Resource" id="Resource_3gx4g"]
+script = ExtResource("2_c1sfm")
+prop = ExtResource("3_eenjo")
+clustering = 0.4
+
+[sub_resource type="Resource" id="Resource_gq0ra"]
+script = ExtResource("2_c1sfm")
+prop = ExtResource("4_2271s")
+density = 0.025
+clustering = 0.3
+
+[sub_resource type="Resource" id="Resource_bbn6o"]
+script = ExtResource("2_c1sfm")
+prop = ExtResource("5_1caem")
+density = 0.012
+clustering = 0.7
+
+[sub_resource type="Resource" id="Resource_acq5e"]
+script = ExtResource("2_c1sfm")
+prop = ExtResource("6_uw0vf")
+density = 0.01
+clustering = 0.5
+
+[sub_resource type="Resource" id="Resource_nlu11"]
+script = ExtResource("2_c1sfm")
+prop = ExtResource("7_5ksy4")
+density = 0.004
+
+[sub_resource type="Resource" id="Resource_4tfai"]
+script = ExtResource("2_c1sfm")
+prop = ExtResource("8_h2a0u")
+density = 0.012
+clustering = 0.2
+
+[sub_resource type="Resource" id="Resource_06i0y"]
+script = ExtResource("2_c1sfm")
+prop = ExtResource("9_m47nq")
+density = 0.004
+
+[sub_resource type="Resource" id="Resource_rqtk0"]
+script = ExtResource("2_c1sfm")
+prop = ExtResource("10_vhh6s")
+density = 0.01
+
+[resource]
+script = ExtResource("11_qwh1d")
+id = &"highlands"
+display_name = "Нагорье"
+border_style = 2
+max_level = 2
+elevation_amount = 0.4
+high_ground_amount = 0.35
+elevation_frequency = 0.05
+river_chance = 0.3
+river_width = Vector2i(2, 2)
+lake_amount = 0.02
+bridge_width = 1
+lush_amount = 0.2
+props = Array[ExtResource("2_c1sfm")]([SubResource("Resource_3gx4g"), SubResource("Resource_gq0ra"), SubResource("Resource_bbn6o"), SubResource("Resource_acq5e"), SubResource("Resource_nlu11"), SubResource("Resource_4tfai"), SubResource("Resource_06i0y"), SubResource("Resource_rqtk0")])
+tile_theme = ExtResource("12_i1xs4")
+tint = Color(1, 0.96, 0.88, 1)

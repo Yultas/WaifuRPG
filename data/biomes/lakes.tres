@@ -1,0 +1,79 @@
+[gd_resource type="Resource" script_class="BiomeData" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_jqaxi"]
+[ext_resource type="Script" path="res://src/dungeon/prop_rule.gd" id="2_gu7j7"]
+[ext_resource type="Resource" path="res://data/props/lily_pad.tres" id="3_jkpxn"]
+[ext_resource type="Resource" path="res://data/props/lily_pads.tres" id="4_rgsex"]
+[ext_resource type="Resource" path="res://data/props/mushroom_purple.tres" id="5_xqxn7"]
+[ext_resource type="Resource" path="res://data/props/tree_small.tres" id="6_vmvo1"]
+[ext_resource type="Resource" path="res://data/props/bush.tres" id="7_ipi5f"]
+[ext_resource type="Resource" path="res://data/props/hedge.tres" id="8_s7xup"]
+[ext_resource type="Resource" path="res://data/props/flower_pink.tres" id="9_78yjv"]
+[ext_resource type="Resource" path="res://data/props/flower_blue.tres" id="10_8aark"]
+[ext_resource type="Resource" path="res://data/props/sprout.tres" id="11_162ks"]
+[ext_resource type="Script" path="res://src/dungeon/biome_data.gd" id="12_72216"]
+[ext_resource type="Resource" path="res://data/themes/meadow.tres" id="13_6gnxu"]
+
+[sub_resource type="Resource" id="Resource_ldppm"]
+script = ExtResource("2_gu7j7")
+prop = ExtResource("3_jkpxn")
+density = 0.06
+
+[sub_resource type="Resource" id="Resource_obnlx"]
+script = ExtResource("2_gu7j7")
+prop = ExtResource("4_rgsex")
+density = 0.04
+
+[sub_resource type="Resource" id="Resource_em2li"]
+script = ExtResource("2_gu7j7")
+prop = ExtResource("5_xqxn7")
+density = 0.015
+clustering = 0.6
+
+[sub_resource type="Resource" id="Resource_cd0q1"]
+script = ExtResource("2_gu7j7")
+prop = ExtResource("6_vmvo1")
+density = 0.015
+clustering = 0.6
+
+[sub_resource type="Resource" id="Resource_x53nw"]
+script = ExtResource("2_gu7j7")
+prop = ExtResource("7_ipi5f")
+density = 0.015
+clustering = 0.5
+
+[sub_resource type="Resource" id="Resource_7y4pk"]
+script = ExtResource("2_gu7j7")
+prop = ExtResource("8_s7xup")
+density = 0.004
+
+[sub_resource type="Resource" id="Resource_8x0wj"]
+script = ExtResource("2_gu7j7")
+prop = ExtResource("9_78yjv")
+clustering = 0.3
+
+[sub_resource type="Resource" id="Resource_6yh3j"]
+script = ExtResource("2_gu7j7")
+prop = ExtResource("10_8aark")
+density = 0.015
+clustering = 0.3
+
+[sub_resource type="Resource" id="Resource_bmp55"]
+script = ExtResource("2_gu7j7")
+prop = ExtResource("11_162ks")
+
+[resource]
+script = ExtResource("12_72216")
+id = &"lakes"
+display_name = "Озёрный край"
+border_style = 1
+elevation_amount = 0.1
+river_chance = 0.7
+lake_amount = 0.18
+lake_frequency = 0.09
+bridge_width = 1
+max_bridge_length = 10
+lush_amount = 0.5
+props = Array[ExtResource("2_gu7j7")]([SubResource("Resource_ldppm"), SubResource("Resource_obnlx"), SubResource("Resource_em2li"), SubResource("Resource_cd0q1"), SubResource("Resource_x53nw"), SubResource("Resource_7y4pk"), SubResource("Resource_8x0wj"), SubResource("Resource_6yh3j"), SubResource("Resource_bmp55")])
+tile_theme = ExtResource("13_6gnxu")
+tint = Color(0.92, 1, 0.97, 1)

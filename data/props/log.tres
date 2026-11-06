@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="PropDef" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_d1i2u"]
+
+[resource]
+script = ExtResource("1_d1i2u")
+id = &"log"
+collision_size = Vector2(0.8, 0.4)

@@ -1,0 +1,106 @@
+[gd_resource type="Resource" script_class="BiomeData" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_2kcx4"]
+[ext_resource type="Resource" path="res://data/props/tree_big.tres" id="2_qbkdq"]
+[ext_resource type="Resource" path="res://data/props/tree_fruit.tres" id="3_v4fcn"]
+[ext_resource type="Resource" path="res://data/props/tree_small.tres" id="4_582wn"]
+[ext_resource type="Resource" path="res://data/props/bush.tres" id="5_0fhd4"]
+[ext_resource type="Script" path="res://src/dungeon/prop_rule.gd" id="6_axxst"]
+[ext_resource type="Resource" path="res://data/props/bush_berry.tres" id="7_gg57d"]
+[ext_resource type="Resource" path="res://data/props/stump.tres" id="8_2dhnt"]
+[ext_resource type="Resource" path="res://data/props/log.tres" id="9_0avys"]
+[ext_resource type="Resource" path="res://data/props/mushroom_red.tres" id="10_1macx"]
+[ext_resource type="Resource" path="res://data/props/sprout.tres" id="11_rgie2"]
+[ext_resource type="Resource" path="res://data/props/flower_yellow.tres" id="12_qej8q"]
+[ext_resource type="Resource" path="res://data/props/flower_pink.tres" id="13_005t4"]
+[ext_resource type="Resource" path="res://data/props/rock_small.tres" id="14_eedph"]
+[ext_resource type="Resource" path="res://data/props/lily_pad.tres" id="15_fuf42"]
+[ext_resource type="Script" path="res://src/dungeon/biome_data.gd" id="16_23ltr"]
+[ext_resource type="Resource" path="res://data/themes/meadow.tres" id="17_nbifi"]
+
+[sub_resource type="Resource" id="Resource_67o0g"]
+script = ExtResource("6_axxst")
+prop = ExtResource("2_qbkdq")
+density = 0.03
+clustering = 0.9
+
+[sub_resource type="Resource" id="Resource_1knfq"]
+script = ExtResource("6_axxst")
+prop = ExtResource("3_v4fcn")
+density = 0.008
+clustering = 0.8
+
+[sub_resource type="Resource" id="Resource_7mx0i"]
+script = ExtResource("6_axxst")
+prop = ExtResource("4_582wn")
+density = 0.03
+clustering = 0.8
+
+[sub_resource type="Resource" id="Resource_y2act"]
+script = ExtResource("6_axxst")
+prop = ExtResource("5_0fhd4")
+clustering = 0.6
+
+[sub_resource type="Resource" id="Resource_3t70u"]
+script = ExtResource("6_axxst")
+prop = ExtResource("7_gg57d")
+density = 0.006
+clustering = 0.6
+
+[sub_resource type="Resource" id="Resource_f5y87"]
+script = ExtResource("6_axxst")
+prop = ExtResource("8_2dhnt")
+density = 0.005
+clustering = 0.3
+
+[sub_resource type="Resource" id="Resource_uobi8"]
+script = ExtResource("6_axxst")
+prop = ExtResource("9_0avys")
+density = 0.004
+clustering = 0.3
+
+[sub_resource type="Resource" id="Resource_gvjdy"]
+script = ExtResource("6_axxst")
+prop = ExtResource("10_1macx")
+density = 0.01
+clustering = 0.7
+
+[sub_resource type="Resource" id="Resource_crehj"]
+script = ExtResource("6_axxst")
+prop = ExtResource("11_rgie2")
+clustering = 0.2
+
+[sub_resource type="Resource" id="Resource_nhu5s"]
+script = ExtResource("6_axxst")
+prop = ExtResource("12_qej8q")
+density = 0.012
+clustering = 0.3
+
+[sub_resource type="Resource" id="Resource_3jps3"]
+script = ExtResource("6_axxst")
+prop = ExtResource("13_005t4")
+density = 0.01
+clustering = 0.3
+
+[sub_resource type="Resource" id="Resource_abin5"]
+script = ExtResource("6_axxst")
+prop = ExtResource("14_eedph")
+density = 0.005
+
+[sub_resource type="Resource" id="Resource_dvhgf"]
+script = ExtResource("6_axxst")
+prop = ExtResource("15_fuf42")
+density = 0.06
+
+[resource]
+script = ExtResource("16_23ltr")
+id = &"forest"
+display_name = "Лес"
+border_props = Array[ExtResource("1_2kcx4")]([ExtResource("2_qbkdq"), ExtResource("3_v4fcn"), ExtResource("4_582wn"), ExtResource("5_0fhd4")])
+elevation_frequency = 0.07
+river_chance = 0.55
+lake_amount = 0.04
+bridge_width = 1
+lush_amount = 0.45
+props = Array[ExtResource("6_axxst")]([SubResource("Resource_67o0g"), SubResource("Resource_1knfq"), SubResource("Resource_7mx0i"), SubResource("Resource_y2act"), SubResource("Resource_3t70u"), SubResource("Resource_f5y87"), SubResource("Resource_uobi8"), SubResource("Resource_gvjdy"), SubResource("Resource_crehj"), SubResource("Resource_nhu5s"), SubResource("Resource_3jps3"), SubResource("Resource_abin5"), SubResource("Resource_dvhgf")])
+tile_theme = ExtResource("17_nbifi")

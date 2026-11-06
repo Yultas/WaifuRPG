@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://7bsyficsa34k"
+path="res://.godot/imported/punch_3.wav-2e72676c9f90f3ebc83278dc6e30bfc6.sample"
+
+[deps]
+
+source_file="res://tiles/Sprout Lands - Sorry pack/Audio/punch_3.wav"
+dest_files=["res://.godot/imported/punch_3.wav-2e72676c9f90f3ebc83278dc6e30bfc6.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

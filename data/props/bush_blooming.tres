@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="PropDef" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_eawye"]
+
+[resource]
+script = ExtResource("1_eawye")
+id = &"bush_blooming"
+collision_size = Vector2(0.7, 0.45)

@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="DungeonConfig" format=3]
+
+[ext_resource type="Resource" path="res://data/biomes/forest.tres" id="1_2vxfg"]
+[ext_resource type="Script" path="res://src/dungeon/dungeon_config.gd" id="2_msp05"]
+
+[resource]
+script = ExtResource("2_msp05")
+biome = ExtResource("1_2vxfg")

@@ -1,0 +1,124 @@
+[gd_resource type="Resource" script_class="BiomeData" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_68xle"]
+[ext_resource type="Resource" path="res://data/props/cherry_huge.tres" id="2_fgiq4"]
+[ext_resource type="Resource" path="res://data/props/cherry.tres" id="3_ep6dm"]
+[ext_resource type="Resource" path="res://data/props/cherry_tall.tres" id="4_ycx4l"]
+[ext_resource type="Resource" path="res://data/props/bush_pink_big.tres" id="5_sidrk"]
+[ext_resource type="Script" path="res://src/dungeon/prop_rule.gd" id="6_lcnfq"]
+[ext_resource type="Resource" path="res://data/props/cherry_sapling.tres" id="7_6mskq"]
+[ext_resource type="Resource" path="res://data/props/bush_pink.tres" id="8_e63cs"]
+[ext_resource type="Resource" path="res://data/props/bush_blooming.tres" id="9_erjja"]
+[ext_resource type="Resource" path="res://data/props/bush_rose.tres" id="10_peik7"]
+[ext_resource type="Resource" path="res://data/props/cherry_stump.tres" id="11_x8fm1"]
+[ext_resource type="Resource" path="res://data/props/cherry_log.tres" id="12_nt4xa"]
+[ext_resource type="Resource" path="res://data/props/flower_pink.tres" id="13_rc36b"]
+[ext_resource type="Resource" path="res://data/props/weeds_cherry.tres" id="14_roagk"]
+[ext_resource type="Resource" path="res://data/props/lily_pink.tres" id="15_8e7ij"]
+[ext_resource type="Resource" path="res://data/props/lily_pink_flower.tres" id="16_wjm0f"]
+[ext_resource type="Resource" path="res://data/props/petals.tres" id="17_uewiv"]
+[ext_resource type="Resource" path="res://data/props/petals_few.tres" id="18_gjq5g"]
+[ext_resource type="Script" path="res://src/dungeon/biome_data.gd" id="19_4bh82"]
+[ext_resource type="Resource" path="res://data/themes/cherry.tres" id="20_qoyfk"]
+
+[sub_resource type="Resource" id="Resource_2keo4"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("3_ep6dm")
+clustering = 0.8
+
+[sub_resource type="Resource" id="Resource_276dx"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("4_ycx4l")
+clustering = 0.7
+
+[sub_resource type="Resource" id="Resource_60atl"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("2_fgiq4")
+density = 0.004
+clustering = 0.9
+
+[sub_resource type="Resource" id="Resource_8vxdi"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("7_6mskq")
+density = 0.008
+clustering = 0.5
+
+[sub_resource type="Resource" id="Resource_3tbfc"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("8_e63cs")
+density = 0.012
+clustering = 0.6
+
+[sub_resource type="Resource" id="Resource_aomk4"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("5_sidrk")
+density = 0.008
+clustering = 0.6
+
+[sub_resource type="Resource" id="Resource_jy4st"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("9_erjja")
+density = 0.01
+clustering = 0.5
+
+[sub_resource type="Resource" id="Resource_7jmno"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("10_peik7")
+density = 0.006
+clustering = 0.5
+
+[sub_resource type="Resource" id="Resource_rn5au"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("11_x8fm1")
+density = 0.004
+clustering = 0.2
+
+[sub_resource type="Resource" id="Resource_efpph"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("12_nt4xa")
+density = 0.003
+clustering = 0.2
+
+[sub_resource type="Resource" id="Resource_sgb0a"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("13_rc36b")
+clustering = 0.3
+
+[sub_resource type="Resource" id="Resource_o0mga"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("14_roagk")
+density = 0.015
+clustering = 0.2
+
+[sub_resource type="Resource" id="Resource_2cc3l"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("15_8e7ij")
+density = 0.05
+
+[sub_resource type="Resource" id="Resource_87js5"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("16_wjm0f")
+
+[sub_resource type="Resource" id="Resource_7nup2"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("17_uewiv")
+density = 0.03
+
+[sub_resource type="Resource" id="Resource_61x6p"]
+script = ExtResource("6_lcnfq")
+prop = ExtResource("18_gjq5g")
+density = 0.03
+
+[resource]
+script = ExtResource("19_4bh82")
+id = &"cherry_grove"
+display_name = "Вишнёвая роща"
+border_props = Array[ExtResource("1_68xle")]([ExtResource("2_fgiq4"), ExtResource("3_ep6dm"), ExtResource("4_ycx4l"), ExtResource("5_sidrk")])
+elevation_amount = 0.15
+elevation_frequency = 0.07
+river_chance = 0.4
+lake_amount = 0.08
+bridge_width = 1
+lush_amount = 0.5
+props = Array[ExtResource("6_lcnfq")]([SubResource("Resource_2keo4"), SubResource("Resource_276dx"), SubResource("Resource_60atl"), SubResource("Resource_8vxdi"), SubResource("Resource_3tbfc"), SubResource("Resource_aomk4"), SubResource("Resource_jy4st"), SubResource("Resource_7jmno"), SubResource("Resource_rn5au"), SubResource("Resource_efpph"), SubResource("Resource_sgb0a"), SubResource("Resource_o0mga"), SubResource("Resource_2cc3l"), SubResource("Resource_87js5"), SubResource("Resource_7nup2"), SubResource("Resource_61x6p")])
+tile_theme = ExtResource("20_qoyfk")

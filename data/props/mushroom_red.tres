@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="PropDef" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_v2b4u"]
+
+[resource]
+script = ExtResource("1_v2b4u")
+id = &"mushroom_red"
+blocking = false
+collision_size = Vector2(0, 0)

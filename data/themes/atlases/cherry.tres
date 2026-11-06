@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="PropAtlas" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/render/prop_atlas.gd" id="1_s7k45"]
+[ext_resource type="Texture2D" path="res://tiles/Sprout Lands - Sorry pack/Early Access/Plant update 2/Cherry Blossom Biom.png" id="2_m0x3h"]
+
+[resource]
+script = ExtResource("1_s7k45")
+texture = ExtResource("2_m0x3h")
+tiles = Dictionary[StringName, Rect2i]({
+&"bush_blooming": Rect2i(2, 4, 1, 1),
+&"bush_green": Rect2i(0, 4, 1, 1),
+&"bush_pink": Rect2i(4, 4, 1, 1),
+&"bush_pink_big": Rect2i(5, 4, 1, 1),
+&"bush_rose": Rect2i(7, 4, 1, 1),
+&"cherry": Rect2i(5, 1, 2, 2),
+&"cherry_huge": Rect2i(7, 0, 3, 3),
+&"cherry_log": Rect2i(7, 3, 1, 1),
+&"cherry_log_long": Rect2i(8, 3, 2, 1),
+&"cherry_sapling": Rect2i(3, 1, 1, 1),
+&"cherry_shrub": Rect2i(2, 1, 1, 1),
+&"cherry_stump": Rect2i(4, 3, 1, 1),
+&"cherry_stump_big": Rect2i(5, 3, 2, 1),
+&"cherry_tall": Rect2i(4, 1, 1, 2),
+&"weeds_cherry": Rect2i(2, 0, 1, 1)
+})

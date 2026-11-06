@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="PropDef" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_rf1xo"]
+
+[resource]
+script = ExtResource("1_rf1xo")
+id = &"lily_pink_flower"
+blocking = false
+placement = 1
+collision_size = Vector2(0, 0)

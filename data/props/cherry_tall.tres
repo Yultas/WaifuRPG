@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="PropDef" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_h5t87"]
+
+[resource]
+script = ExtResource("1_h5t87")
+id = &"cherry_tall"
+size = Vector2i(1, 2)
+collision_size = Vector2(0.4, 0.3)

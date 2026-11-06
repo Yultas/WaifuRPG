@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="PropDef" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_whkr3"]
+
+[resource]
+script = ExtResource("1_whkr3")
+id = &"hedge"
+size = Vector2i(3, 1)
+collision_size = Vector2(2.7, 0.5)

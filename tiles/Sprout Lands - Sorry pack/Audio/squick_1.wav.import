@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://c22aw6invq26a"
+path="res://.godot/imported/squick_1.wav-aa89c4d43e74c7a5c8a18434b35ec143.sample"
+
+[deps]
+
+source_file="res://tiles/Sprout Lands - Sorry pack/Audio/squick_1.wav"
+dest_files=["res://.godot/imported/squick_1.wav-aa89c4d43e74c7a5c8a18434b35ec143.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

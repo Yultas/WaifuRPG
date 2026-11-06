@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="PropDef" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_4r6nv"]
+
+[resource]
+script = ExtResource("1_4r6nv")
+id = &"reeds_tall"
+size = Vector2i(1, 2)
+blocking = false
+placement = 1
+collision_size = Vector2(0, 0)

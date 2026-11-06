@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="PropDef" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_pnxtb"]
+
+[resource]
+script = ExtResource("1_pnxtb")
+id = &"cherry_sapling"
+collision_size = Vector2(0.4, 0.3)

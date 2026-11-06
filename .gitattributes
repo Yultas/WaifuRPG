@@ -1,0 +1,9 @@
+# Нормализуем переводы строк в тексте, бинарники не трогаем
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.wav binary
+*.ogg binary
+*.mp3 binary
+*.ttf binary
+*.otf binary

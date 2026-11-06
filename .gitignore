@@ -1,0 +1,17 @@
+# Godot 4: кэш импорта и редактора пересоздаётся автоматически
+.godot/
+# Сборки и экспорт
+/build/
+/export/
+*.pck
+*.zip
+export_credentials.cfg
+# Python-инструменты
+__pycache__/
+*.pyc
+# ОС и редакторы
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/

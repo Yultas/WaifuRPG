@@ -1,0 +1,86 @@
+[gd_resource type="Resource" script_class="BiomeData" format=3]
+
+[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_llluh"]
+[ext_resource type="Resource" path="res://data/props/snow_pine_huge.tres" id="2_kh4kj"]
+[ext_resource type="Resource" path="res://data/props/snow_pine_huge_b.tres" id="3_t71cy"]
+[ext_resource type="Resource" path="res://data/props/snow_pine.tres" id="4_gmpjy"]
+[ext_resource type="Resource" path="res://data/props/snow_pine_tall.tres" id="5_qitgo"]
+[ext_resource type="Script" path="res://src/dungeon/prop_rule.gd" id="6_gkrl4"]
+[ext_resource type="Resource" path="res://data/props/snow_pile.tres" id="7_tbnem"]
+[ext_resource type="Resource" path="res://data/props/snow_pile_big.tres" id="8_dklyw"]
+[ext_resource type="Resource" path="res://data/props/pine_stump.tres" id="9_l75l7"]
+[ext_resource type="Resource" path="res://data/props/pine_log.tres" id="10_r4wu7"]
+[ext_resource type="Resource" path="res://data/props/rock_big.tres" id="11_by2vg"]
+[ext_resource type="Resource" path="res://data/props/ice_floe.tres" id="12_8eyhl"]
+[ext_resource type="Resource" path="res://data/props/ice_floe_b.tres" id="13_sbb8t"]
+[ext_resource type="Script" path="res://src/dungeon/biome_data.gd" id="14_1he0y"]
+[ext_resource type="Resource" path="res://data/themes/winter.tres" id="15_bukdc"]
+
+[sub_resource type="Resource" id="Resource_p0adi"]
+script = ExtResource("6_gkrl4")
+prop = ExtResource("4_gmpjy")
+clustering = 0.85
+
+[sub_resource type="Resource" id="Resource_cbgd8"]
+script = ExtResource("6_gkrl4")
+prop = ExtResource("5_qitgo")
+density = 0.025
+clustering = 0.8
+
+[sub_resource type="Resource" id="Resource_b1aah"]
+script = ExtResource("6_gkrl4")
+prop = ExtResource("2_kh4kj")
+density = 0.004
+clustering = 0.9
+
+[sub_resource type="Resource" id="Resource_xnrql"]
+script = ExtResource("6_gkrl4")
+prop = ExtResource("7_tbnem")
+density = 0.015
+clustering = 0.3
+
+[sub_resource type="Resource" id="Resource_t77h8"]
+script = ExtResource("6_gkrl4")
+prop = ExtResource("8_dklyw")
+density = 0.006
+clustering = 0.3
+
+[sub_resource type="Resource" id="Resource_56tre"]
+script = ExtResource("6_gkrl4")
+prop = ExtResource("9_l75l7")
+density = 0.004
+clustering = 0.2
+
+[sub_resource type="Resource" id="Resource_xe5pf"]
+script = ExtResource("6_gkrl4")
+prop = ExtResource("10_r4wu7")
+density = 0.003
+clustering = 0.2
+
+[sub_resource type="Resource" id="Resource_lg05y"]
+script = ExtResource("6_gkrl4")
+prop = ExtResource("11_by2vg")
+density = 0.006
+clustering = 0.2
+
+[sub_resource type="Resource" id="Resource_oy8iy"]
+script = ExtResource("6_gkrl4")
+prop = ExtResource("12_8eyhl")
+density = 0.06
+
+[sub_resource type="Resource" id="Resource_4hk4i"]
+script = ExtResource("6_gkrl4")
+prop = ExtResource("13_sbb8t")
+density = 0.04
+
+[resource]
+script = ExtResource("14_1he0y")
+id = &"winter"
+display_name = "Зимний лес"
+border_props = Array[ExtResource("1_llluh")]([ExtResource("2_kh4kj"), ExtResource("3_t71cy"), ExtResource("4_gmpjy"), ExtResource("5_qitgo")])
+river_chance = 0.35
+lake_amount = 0.07
+bridge_width = 1
+lush_amount = 0.25
+props = Array[ExtResource("6_gkrl4")]([SubResource("Resource_p0adi"), SubResource("Resource_cbgd8"), SubResource("Resource_b1aah"), SubResource("Resource_xnrql"), SubResource("Resource_t77h8"), SubResource("Resource_56tre"), SubResource("Resource_xe5pf"), SubResource("Resource_lg05y"), SubResource("Resource_oy8iy"), SubResource("Resource_4hk4i")])
+tile_theme = ExtResource("15_bukdc")
