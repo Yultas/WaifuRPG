@@ -10,16 +10,23 @@
 ```
 src/
 ├── core/world_units.gd                    единицы измерения
-└── dungeon/
-    ├── dungeon_types.gd                   общие перечисления
-    ├── dungeon_config.gd, biome_data.gd,
-    │   prop_def.gd, prop_rule.gd          данные-ресурсы
-    ├── dungeon_data.gd, room_data.gd,
-    │   room_map.gd                        результат генерации
-    ├── generation/                        генерация
-    ├── physics/                           коллизии
-    ├── render/                            2D-отрисовка
-    └── import/                            импорт биома из листов тайлов
+├── combat/                                чистая логика боя
+├── dungeon/
+│   ├── dungeon_types.gd                   общие перечисления
+│   ├── dungeon_config.gd, biome_data.gd,
+│   │   prop_def.gd, prop_rule.gd          данные-ресурсы
+│   ├── dungeon_data.gd, room_data.gd,
+│   │   room_map.gd                        результат генерации
+│   ├── generation/                        генерация
+│   ├── physics/                           коллизии
+│   ├── render/                            2D-отрисовка
+│   └── import/                            импорт биома из листов тайлов
+├── heroes/                                отряд героев (фиксированные такты)
+├── net/                                   сетевой транспорт без игровых правил
+└── enemies/                               ИИ врагов
+    ├── enemy_definition.gd                параметры врага (ресурс)
+    ├── room_navigation.gd                 навмеш комнаты
+    └── basic_enemy.gd                     базовый ближний враг
 scenes/debug/                              просмотрщик и отладка
 tests/                                     автотесты
 tools/import_biome.gd                      импорт биома (CLI)
@@ -29,6 +36,10 @@ tools/recolor_hills.py                     перекраска обрывов �
 ---
 
 ## Ядро
+
+### `src/core/actor_id_allocator.gd` — `ActorIdAllocator`
+
+Монотонные положительные ID в пределах забега. **`allocate()`** выдаёт следующий ID, **`allocate_block(count)`** — непрерывный `Array[int]` для отряда. ID не переиспользуются после смены комнаты. Владелец забега передаёт их героям и врагам до регистрации в `DamageSystem`.
 
 ### `src/core/world_units.gd` — `WorldUnits` (статический)
 
@@ -43,6 +54,216 @@ tools/recolor_hills.py                     перекраска обрывов �
 - **`cell_to_pixels(cell)`, `meters_to_pixels(m)`, `pixels_to_meters(px)`** — переводы в пиксели и обратно.
 
 **Кто использует:** рендер, коллизии, просмотрщик, отладочный слой, тестовый герой.
+
+---
+
+## Сеть (`src/net/`)
+
+### `network_transport.gd` — `NetworkTransport`
+
+Базовая граница байтовых пакетов между сессией и backend. Сигналы `peer_connected(peer_id)`, `peer_disconnected(peer_id)`, `packet_received(sender_id, packet)`; API `poll()`, `send_to(peer_id, packet, reliable)`, `close()`, `is_open()`. Не знает игровые сообщения и правила боя. Внешние callbacks должны доходить до сессии только через явный `poll()`.
+
+### `loopback_transport.gd` — `LoopbackTransport`
+
+Детерминированная пара локальных endpoint'ов для тестов и будущих локальных сессий. **`create_pair()`** возвращает `[host, client]` с ID 0 и 1. `send_to()` копирует `PackedByteArray` в очередь другого endpoint; доставка происходит при его `poll()`. Неизвестный peer и отправка после `close()` возвращают `false`. `close()` ставит disconnect-события обеим сторонам и разрывает циклические ссылки пары.
+
+### `handshake_codec.gd` — `HandshakeCodec` (статический)
+
+Явный little-endian кодек handshake без десериализации `Variant`/объектов. Заголовок: magic `WRPG` как `u32`, затем `kind: u8`. `CLIENT_HELLO`: `protocol_version: u16`, `build_version` и `content_hash` как UTF-8 с длиной `u16`. `HOST_WELCOME`: protocol version, `session_id: u32`, `player_slot: u8` (0–3). `REJECT`: строка причины. **`encode(Message)`** возвращает пустой буфер для невалидного сообщения; **`decode(packet)`** возвращает `null` при неизвестном типе, нарушении границ, лишних байтах и невалидных полях. Лимиты: пакет 1024 байта, строка 128 байт.
+
+### `host_session.gd` — `HostSession`
+
+Handshake-владелец хоста. `setup(transport)` подключает сигналы, `poll()` явно продвигает транспорт, `slot_for(peer_id)` возвращает назначенный слот или −1. Точно сверяет protocol/build/content, выдаёт слоты 1–3, отвечает `HOST_WELCOME` или `REJECT`. Повторный hello получает тот же слот без повторного `client_accepted`. Сигналы `client_accepted`, `client_rejected`, `client_disconnected`. `dispose()` отключает сигналы; транспортом не владеет и не закрывает его.
+
+### `client_session.gd` — `ClientSession`
+
+Клиент handshake с состояниями `IDLE`, `CONNECTING`, `ACCEPTED`, `REJECTED`, `DISCONNECTED`. `start()` один раз отправляет hello хосту (peer 0); `accepted(session_id, player_slot)` и `rejected(reason)` сообщают результат. После принятия игнорирует handshake-дубли. `dispose()` отключает сигналы без закрытия внешнего транспорта.
+
+---
+
+## Бой (`src/combat/`)
+
+Архитектура и причины — в [damage_modifiers.md](damage_modifiers.md). Всё боевое ядро — `RefCounted`/`Resource` без узлов сцены; симуляция идёт фиксированными тактами (по умолчанию 60/с).
+
+### `combat_types.gd` — `CombatTypes` (статический)
+
+Общие перечисления боя.
+
+- **`DamageType`** — `PHYSICAL`, `MAGICAL` (индекс массивов статов).
+- **`Faction`** — `HERO`, `ENEMY`.
+- **`Stat`** — что меняет `ModifierOperation`: `FLAT_DAMAGE`, `OUTGOING_ADDITIVE`, `OUTGOING_MULTIPLIER`, `INCOMING_ADDITIVE`, `DEFENSE`, `MAX_HP`, `MAX_POISE`.
+- **`Status`** — `NONE`, `BURN`, `POISON`, `CHILL`, `FREEZE`, `STUN`, `BLEED`.
+- **`AttackTag`** — флаги `NONE=0`, `MELEE=1`, `PROJECTILE=2`, `AOE=4`, `DOT=8`.
+
+### `damage_calculator.gd` — `DamageCalculator` (статический)
+
+Чистый числовой расчёт урона без зависимости от узлов, времени, FPS, RNG и отображения. Не изменяет здоровье или другое состояние существ.
+
+- **`resolve_into(request, result)`** — заполняет существующий `DamageResult`, не создавая результат на каждый расчёт.
+- Порядок: база плюс плоский бонус → аддитивный исходящий бонус → особый множитель → входящий бонус цели → `mitigation`.
+- Отрицательный итог каждой стадии ограничивается нулём. `mitigation` ограничен диапазоном 0–2.
+
+### `defense_formula.gd` — `DefenseFormula` (статический)
+
+Переводит защиту со знаком в множитель урона в стиле Dota: `mitigation = 1 − (c·d) / (1 + |c·d|)`.
+
+- **`mitigation(defense, constant = 0.06) -> float`** — диапазон результата 0–2 (иммунитет — максимальная уязвимость ×2), без нуля в знаменателе. Вызывается из `CombatStats` при пересборке.
+
+### `damage_request.gd` — `DamageRequest`
+
+Числовой вход одного расчёта: `damage_type`, `base_damage`, `flat_bonus`, `outgoing_additive`, `outgoing_multiplier`, `incoming_additive`, `mitigation`, `poise_damage`. Переиспользуется; модификаторы агрегирует вызывающая сторона (`DamageSystem`).
+
+### `damage_result.gd` — `DamageResult`
+
+Переиспользуемый выход расчёта: `damage`, `poise_damage`, `actual_damage` (что реально снялось с HP), `prevented`, `target_died`, `staggered`. Применение к здоровью — отдельная операция (`CombatantState.apply_result`).
+
+### `combatant_definition.gd` — `CombatantDefinition` (ресурс)
+
+Базовые данные бойца (метры и секунды): `display_name`, `speed`, `radius`, `max_hp` (10), `max_poise` (100), `physical_defense`, `magical_defense`, `poise_regen_delay` (0,8 с), `poise_regen_per_second` (50). Наследуются `HeroDefinition` и `EnemyDefinition`.
+
+### `combatant_state.gd` — `CombatantState`
+
+Runtime-состояние бойца, независимое от визуального узла: `actor_id`, `faction`, `definition`, `modifiers` (`ModifierSet`), `statuses` (`StatusSet`), `hp`, `poise`, `alive`, `invulnerable_ticks`, `hitstop_ticks`.
+
+- **`configure(definition, id, faction, status_config, ticks_per_second)`** — полная настройка и сброс.
+- **`tick(damage_system)`** — один боевой такт: модификаторы, статусы, i-frames, хитстоп, реген poise (после `poise_regen_delay` без попаданий и вне стана).
+- **`apply_result(result)`** — снимает HP/poise, фиксирует `actual_damage`; при HP = 0 умирает и чистит статусы; при poise ≤ 0 — стаггер: стан 0,4 с и полное восстановление poise.
+- **`can_act()`** — жив, без хитстопа, не в стане и не в заморозке. **`movement_multiplier()`** — замедление от охлаждения, 0 при `can_act() == false`.
+- **`apply_knockback(distance, direction)`** — запускает отбрасывание: полная `distance` в метрах проходится за фиксированные `KNOCKBACK_DURATION_SECONDS` (0,12 с), расчёт раскладывает её на `knockback_per_tick`. Снос — принудительное смещение: работает через стан/заморозку/хитстоп. **`knockback_offset()`** — смещение текущего такта (ноль вне отбрасывания); контроллеры применяют его к позиции, стены удерживают на их уровне.
+- **`heal(amount)`**, **`health_ratio()`**.
+
+### `attack_definition.gd` — `AttackDefinition` (ресурс)
+
+Статика одной атаки: `id`, `damage_type`, `base_damage`, `poise_damage`, флаги-теги `tags`, `hit_cooldown` (минимум секунд между повторными попаданиями по цели), `max_hits_per_target` (≤ 0 — без лимита), `knockback_distance` (дистанция отбрасывания в метрах; 0 — без толчка, направление даёт доставка), `status_applications: Array[StatusApplication]`. Кулдауны живут в действии, а не здесь.
+
+### `status_application.gd` — `StatusApplication` (ресурс)
+
+Одна запись «какой статус, сколько стаков» внутри атаки: `status`, `stacks`.
+
+### `status_config.gd` — `StatusConfig` (ресурс)
+
+Баланс статусов прототипа (секунды, конвертируются в такты): горение 5 урона/с/стак, 3 с, максимум 5 стаков; яд 2 урона/с/стак, 6 с, максимум 5; охлаждение 5% за стак, максимум 10, 4 с, заморозка на 10 стаках на 1 с; стан 0,4 с; кровотечение +5% входящего за стак, максимум 10, 4 с; тик DoT каждые 0,25 с. Значения совпадают с [GDD](gdd/03_combat.md).
+
+### `status_set.gd` — `StatusSet`
+
+Фиксированные массивы стаков, остатка тактов и `source_id` по `CombatTypes.Status`.
+
+- **`apply(status, count = 1, source_id = -1)`** — добавляет стаки (с потолком), обновляет длительность; охлаждение на `freeze_at_stacks` превращается в заморозку.
+- **`tick(owner, damage_system)`** — одна секунда расписания: по `dot_interval` наносит объединённый DoT через `DamageSystem.deal_status()` (горение — магический, яд — физический), затем уменьшает остатки и снимает истёкшие.
+- **`has(status)`**, **`stacks_of(status)`**, **`movement_multiplier()`** (1 − стаки охлаждения × замедление), **`clear()`**.
+
+### `modifier_definition.gd` — `ModifierDefinition` (ресурс)
+
+Общая статика модификатора (один `Resource` на всех владельцев): `id`, `operations`, `duration` (секунды), `max_stacks`, `adds_stack_on_reapply`, `refreshes_duration`, `priority`, условия `required_attack_tags`, `required_target_status`, `target_hp_ratio_below` и опциональный `after_damage_handler: ModifierHandler`. Весь баланс — в `.tres`.
+
+### `modifier_operation.gd` — `ModifierOperation` (ресурс)
+
+Одна операция: `stat` (`CombatTypes.Stat`), `value`, маска типов урона `damage_type_mask` (биты физический/магический), `required_attack_tags` (операция работает только для атак с этими тегами). Аддитивные статы суммируются, множители перемножаются постепенно (`pow(value, stacks)`).
+
+### `modifier_instance.gd` — `ModifierInstance`
+
+Runtime одного модификатора на бойце: ссылка на определение, `source_id`, `stacks`, `remaining_ticks`, `sequence` (порядок получения для стабильной сортировки).
+
+### `modifier_set.gd` — `ModifierSet`
+
+Активные модификаторы бойца и лениво пересобираемый снимок статов.
+
+- **`add(definition, source_id)`** — новый экземпляр или повторное наложение по `id` (стак/обновление длительности по флагам определения).
+- **`remove(id)`**, **`tick()`** (истечение длительности).
+- **`get_stats()`** — пересобирает `CombatStats` только при `stats_dirty`: полная пересборка в стабильном порядке (priority, затем sequence), безусловные операции уходят в статистики.
+- **`apply_conditional(request, source, target, attack_tags)`** — на попадании прогоняет только условный список: теги атаки, статус цели, порог HP.
+- **`notify_after_damage(source, target, actual_damage)`** — вызывает `after_damage` у обработчиков всех экземпляров.
+
+### `combat_stats.gd` — `CombatStats`
+
+Готовый снимок агрегированных статов бойца, массивы индексируются `CombatTypes.DamageType`: `flat_bonus`, `outgoing_additive`, `outgoing_multiplier`, `incoming_additive`, `defense`, `mitigation`, плюс `max_hp`, `max_poise`, `defense_constant`. Пересобирается только при изменении модификаторов.
+
+### `modifier_handler.gd` — `ModifierHandler` (ресурс)
+
+База особых поведений, которые не выражаются данными. Пока один хук: **`after_damage(source, target, actual_damage)`** — после фактического изменения HP.
+
+### `damage_system.gd` — `DamageSystem`
+
+Единая точка входа для прямых попаданий и урона статусов. Владеет реестром состояний: `register_combatant(state)`, `unregister_combatant(actor_id)`.
+
+- **`deal(attack, source, target, result, scale = 1.0, knockback_direction = Vector2.ZERO)`** — отклоняет мёртвых, неуязвимых (i-frames) и союзные цели (`prevented = true`); собирает `DamageRequest` из статов источника и цели, кровотечения цели и условных модификаторов обеих сторон; считает через `DamageCalculator`; применяет результат; при `attack.knockback_distance > 0` толкает цель вдоль `knockback_direction` (не для DoT и не по мёртвым); ставит хитстоп (`hitstop_ticks`, по умолчанию 2); накладывает статусы атаки; шлёт `notify_after_damage`.
+- **`deal_status(target, status, damage, source_id)`** — DoT без хитбокса: тег `DOT`, магический для горения, физический для яда.
+
+### `hit_registry.gd` — `HitRegistry`
+
+Правила повторных попаданий: ключ `(attack_instance_id, actor_id цели)`, сколько попаданий нанесено и следующий допустимый такт.
+
+- **`register_hit(attack_instance_id, target_id, tick, cooldown_ticks, max_hits) -> bool`** — `true`, если попадание засчитано; `max_hits <= 0` — без лимита (кулдаун всё равно работает).
+- **`hits_for()`**, **`clear_attack()`** (записи одной атаки удаляются вместе с ней), **`clear_target()`**, **`clear()`**.
+
+### `hitbox_2d.gd` — `Hitbox2D` (`Area2D`)
+
+Активная область атаки (ближний удар, снаряд, взрыв). Несёт `attack`, `source` (`CombatantState`), уникальный `attack_instance_id` (0 — без учёта повторов), `damage_scale`, боевой `combat_tick`. Владелец комнаты вызывает **`tick()`**: хитбокс перепроверяет пересечения с хёртбоксами, фильтрует фракции, мёртвых и i-frames, прогоняет повторы через `HitRegistry` и отдаёт попадания в `DamageSystem.deal`, передавая направление от хитбокса к хёртбоксу как направление отбрасывания. Автономного `_physics_process` нет. Мгновенный AoE — `deal_aoe(shape, transform, space_state)` и статический `query_hurtboxes()`. `end_attack()` снимает регистрацию и отключает мониторинг, поэтому последующий явный `tick()` уже не наносит урон.
+
+### `hurtbox_2d.gd` — `Hurtbox2D` (`Area2D`)
+
+Пассивная область получения урона: несёт `combatant` (`CombatantState`), живёт на своём collision layer (бит 3; хитбоксы — бит 4), ничего не мониторит, HP не хранит.
+
+---
+
+## Герои (`src/heroes/`)
+
+Отряд из ровно 3 героев на фиксированных тактах; активен всегда один, «карманные» герои продолжают тикать (кулдауны, статусы, i-frames, HP без изменений). Правила — в [GDD](gdd/02_heroes.md), параметры прототипа — в `data/heroes/hero_default.tres` и `data/heroes/party_default.tres`.
+
+### `hero_definition.gd` — `HeroDefinition` (ресурс)
+
+Статика героя поверх `CombatantDefinition`: `attack` и `skill` (`AttackDefinition`, включая дистанции отбрасывания: 0,8 м у атаки, 1,2 м у скилла), `attack_recovery` (0,35 с, автоатаки нет), `skill_cooldown` (3 с), `skill_duration` (0,3 с), `dash_distance` (3 м), `dash_duration` (0,18 с, i-frames на весь рывок), `dash_cooldown` (0,8 с).
+
+### `hero_combat_state.gd` — `HeroCombatState`
+
+`CombatantState` с машиной действий: `enum Action { IDLE, ATTACKING, SKILLING, DASHING }`, `action_ticks_left`, `skill_cooldown_left`, `dash_cooldown_left`, `dash_direction`. Кулдауны тикают каждый такт, в том числе в кармане.
+
+- **`configure_hero(definition, id, status_config, ticks_per_second)`**.
+- **`start_attack()` / `start_skill()` / `start_dash()`** — длительность из `HeroDefinition`, в тактах; рывок ставит i-frames на всё своё время и свой кулдаун.
+- **`finish_skill()`** — кулдаун скилла стартует в такт выстрела.
+- **`cancel_skill()`** — свап во время незаконченного каста отменяет скилл без траты кулдауна.
+- **`dash_ticks()`**, **`_seconds_to_ticks()`** — перевод секунд в такты (минимум 1 такт).
+
+### `hero_action_controller.gd` — `HeroActionController`
+
+Фиксотактовый контроллер одного героя: владеет мировой позицией (метры), `facing`, `move_intent`; превращает намерения в действия.
+
+- **Сигналы:** `attack_fired(attack, origin, direction)`, `skill_fired(attack, origin, direction)` — снаружи (хитбоксами или тестом) превращаются в реальные попадания; сам контроллер урон не доставляет.
+- **`tick(active, damage_system)`** — один такт; при `active = false` (карман) состояние тикает, движения и действий нет. Движение разрешено во время перезарядки атаки и каста скилла; рывок перекрывает движение, последний такт рывка всё ещё несёт героя вперёд. Активное отбрасывание — принудительное смещение: оно перекрывает движение по намерению (в том числе «в кармане»), но не бегущий рывок (снос в полёте складывается с шагом рывка); стены удерживает view-адаптер.
+- **`request_attack()`** — стреляет немедленно, если в IDLE и `can_act()`; дальше перезарядка гейтит следующее нажатие.
+- **`request_skill()`** — только из IDLE, без кулдауна и с `can_act()`.
+- **`request_dash()`** — из IDLE или ATTACKING (dash-cancel recovery), без кулдауна; направление — `move_intent` или `facing`.
+
+### `party_config.gd` — `PartyConfig` (ресурс)
+
+Состав и баланс свапа: `heroes: Array[HeroDefinition]` (ровно 3, один и тот же ресурс может занимать несколько слотов), `swap_cooldown` (1 с). Файл: `data/heroes/party_default.tres`.
+
+### `party_controller.gd` — `PartyController`
+
+Фиксотактовый контроллер отряда. Сигналы `hero_activated(index)`, `hero_deactivated(index)`.
+
+- **`setup(config, damage_system, status_config, first_actor_id, start_position, ticks_per_second)`** — строит состояния и контроллеры трёх героев и регистрирует их в `DamageSystem`.
+- **`apply_input(frame)`** — применяет один `HeroInputFrame`: намерение движения и одноразовые действия. Не продвигает симуляцию.
+- **`tick()`** — сначала кулдаун свапа, затем по такту на каждого героя (только активный исполняет действия).
+- **`request_swap_to(index)`** — отказывает при кулдауне, свапе на себя или на мёртвого; незаконченный скилл отменяется, рывок продолжается в кармане.
+- **`request_swap_next()` / `request_swap_prev()`** — обход по кругу, пропуская мёртвых.
+- Делегирует `set_move_intent`, `request_attack`, `request_skill`, `request_dash` активному герою. **`party_alive()`**, **`active_state()`**, **`active_controller()`**.
+
+### `hero_input_frame.gd` — `HeroInputFrame`
+
+Чистые данные одного такта ввода: `sequence`, `move` и битовая маска `pressed` (`Action`). Методы `press(action)` и `is_pressed(action)`. Не содержит ссылок на узлы, позиции или урон; одинаково подходит для локального и будущего сетевого ввода.
+
+### `hero_input.gd` — `HeroInput` (статический)
+
+Программная регистрация действий в `InputMap` (project.godot не трогается). Действия: `hero_move_*` (WASD + левый стик), `hero_attack` (ЛКМ / X), `hero_skill` (ПКМ / Y), `hero_dash` (Space / B), `hero_swap_1/2/3` (клавиши 1/2/3), `hero_swap_next/prev` (крестовина вверх/вниз). Дефолты добавляются только в действия без событий — переназначение в настройках не ломается. **`move_intent()`** — вектор движения из `InputMap`.
+
+### `hero_input_node.gd` — `HeroInputNode` (`Node`)
+
+Раз в `_physics_process` читает `InputMap`, создаёт `HeroInputFrame` с монотонным `sequence` и испускает `frame_ready(frame)`. Не владеет отрядом и не вызывает `tick()`. В `dungeon_preview` владелец симуляции принимает сигнал, вызывает `PartyController.apply_input(frame)` и затем `tick()`.
+
+### `remote_hero_view.gd` — `RemoteHeroView` (`Node2D`)
+
+Presentation-only реплика героя для будущего клиента. **`bind(state)`** связывает отображаемые HP/действие, **`apply_snapshot(position_m, facing, is_active)`** напрямую применяет позицию в метрах, направление и видимость. Не является `CharacterBody2D`, не создаёт `CollisionShape2D`/`Hurtbox2D`, не хранит контроллер и не пишет в авторитетное состояние. Интерполяция и `ReplicaWorld` относятся к следующим этапам.
 
 ---
 
@@ -402,20 +623,84 @@ tools/recolor_hills.py                     перекраска обрывов �
 
 ---
 
+## Враги (`src/enemies/`)
+
+Подробно — в [enemy_ai.md](enemy_ai.md). Враги подключены к просмотрщику: `dungeon_preview` спавнит 3 `BasicEnemy` в каждой комнате на общем `DamageSystem`.
+
+### `enemy_definition.gd` — `EnemyDefinition` (ресурс)
+
+Балансные параметры одного типа врага: только метры и секунды, пиксели получаются в момент отрисовки. Файл: `data/enemies/basic_enemy.tres`.
+
+- `display_name` — имя.
+- `speed` — скорость, м/с.
+- `radius` — радиус коллизии, м.
+- `detection_range` — с какого расстояния враг замечает героя, м.
+- `attack_range` — с какого расстояния он останавливается и начинает телеграф атаки, м.
+- `attack_damage`, `poise_damage` — урон HP и poise одного удара.
+- `attack_knockback` — дистанция отбрасывания удара, м (0,5; 0 — без толчка).
+- `telegraph_duration` — неподвижный замах перед ударом, с.
+- `attack_cooldown` — пауза между ударами, с.
+
+### `room_navigation.gd` — `RoomNavigation` (`NavigationRegion2D`)
+
+Навмеш одной комнаты, построенный из проходимых клеток `RoomMap` (не из тайлов), в локальных пикселях узла.
+
+- **`build_2d(map, pixels_per_meter) -> RoomNavigation`** — каждая проходимая клетка становится выпуклым четырёхугольником. По ребру, где `RoomMap.can_cross()` разрешает шаг, квадрат доходит до границы клетки и соседние квадраты склеиваются в `NavigationServer2D`; где шаг запрещён (обрывы, бока мостов, блокирующие пропсы, стены), квадрат ужимается на зазор `GAP_FRACTION` (0.15 клетки) — больше маржи сервера, поэтому стороны не соединяются. Мосты, лестницы и уровни так следуют тем же правилам, что и персонажи (`RoomCollision`).
+
+### `basic_enemy.gd` — `BasicEnemy` (`CharacterBody2D`)
+
+Сборка первого врага ближнего боя: собственные runtime-компоненты, `CombatantState`, физическое тело и представление. `BasicEnemy.State` — совместимое представление автомата `EnemyBrain.State { IDLE, CHASE, TELEGRAPH, COOLDOWN }`:
+
+- `IDLE` стоит; при герое ближе `detection_range` — `CHASE`;
+- `CHASE` идёт к герою по своему `NavigationAgent2D`; вне радиуса — обратно в `IDLE`, в `attack_range` — `TELEGRAPH`;
+- `TELEGRAPH` стоит неподвижно `telegraph_duration`, затем бьёт и уходит в `COOLDOWN`;
+- `COOLDOWN` стоит `attack_cooldown`, затем выбирает следующее состояние по дистанции.
+
+- **Поля:** `definition: EnemyDefinition`, `map: RoomMap`, `pixels_per_meter`, `level` (уровень клетки под ногами, определяет `collision_mask`), `state` (read-only для наблюдателей), `combat: CombatantState` (read-only, появляется только с `damage_system`), `damage_system: DamageSystem` (инжектится владельцем комнаты), `status_config` (по умолчанию `StatusConfig.new()`), `last_result` — переиспользуемый `DamageResult` последнего удара (read-only).
+- **`enter_room(room_map, local_pixels_per_meter, cell, heroes, actor_id)`** — поставить в центр клетки, задать список героев и зарегистрировать бойца с ID, выданным `ActorIdAllocator`. **`set_targets(heroes)`** меняет список без пересоздания комнаты. **`meters()`**, **`cell()`** — позиция в метрах и клетка под ногами.
+- **`tick()`** — один явный такт: выбирает ближайшего видимого живого героя (равная дистанция → меньший `actor_id`), затем продвигает состояние, урон и движение. Вызывает владелец комнаты; автономного `_physics_process` нет.
+- Удар не трогает HP сам: `EnemyMeleeAttack.strike()` отдаёт попадание в `DamageSystem.deal()` с собственным `CombatantState` (ENEMY) и боевым состоянием героя, которое герой обязан отдать через свойство `combatant_state`; направление отбрасывания — от тела врага к герою, дистанция — `definition.attack_knockback`. После телеграфа дистанция и уровень рельефа героя перепроверяются; мёртвых и i-frames отсекает сам `DamageSystem`. Без инжектированного `damage_system` боевого состояния нет и удар — no-op.
+- Стан, заморозка и хитстоп останавливают весь автомат через `CombatantState.can_act()`. Все боевые таймеры — фиксированные 60 Гц такты, а не `delta`.
+- Стены обходятся двояко: `NavigationAgent2D` строит путь по навмешу, `move_and_slide` страхует остатки на слое уровня `RoomCollision`. Логика — в `tick()`, `_process` только рисует состояние (цвет корпуса, кольцо телеграфа).
+
+### `enemy_brain.gd` — `EnemyBrain` (`RefCounted`)
+
+Чистый автомат одного врага. `reset()` очищает состояние и таймеры. `tick(distance_m, detection_range_m, attack_range_m, windup_ticks, can_act = true)` выдаёт `NONE`, `CHASE` или `STRIKE`; состояние и длительности принадлежат этому экземпляру. Входы — метры и фиксированные такты, без узлов, физики и пикселей. После исполнения `STRIKE` владелец вызывает `finish_strike(recovery_ticks)`, включая случай промаха: до этого обработчики урона видят `TELEGRAPH`, затем начинается полный cooldown.
+
+### `enemy_perception.gd` — `EnemyPerception` (`RefCounted`)
+
+Владеет копией списка кандидатов и выбранным узлом `target`. `set_targets()` заменяет список и очищает выбор. `select_target()` сохраняет прежнее правило ближайшего живого видимого узла; прямой видимости через геометрию пока нет. `target_local()`, `distance_m()`, `target_level()` и `target_combat_state()` адаптируют координаты и боевое состояние для сборки и исполнителя удара.
+
+### `enemy_navigation.gd` — `EnemyNavigation` (`RefCounted`)
+
+`chase_velocity()` получает принадлежащий телу `NavigationAgent2D` и возвращает скорость в локальных пикселях в секунду, переводя глобальную следующую точку пути через родителя. Хранит направление `facing`, но не перемещает тело и не владеет узлом агента. Avoidance и новая политика перепрокладки не включаются на R1.
+
+### `enemy_melee_attack.gd` — `EnemyMeleeAttack` (`RefCounted`)
+
+Владеет собственными `AttackDefinition` и переиспользуемым `DamageResult`. `configure(definition)` копирует параметры физической ближней атаки, не изменяя общий ресурс. `strike()` сохраняет прежние проверки боевого состояния цели, дальности и уровня перед `DamageSystem.deal()`. Отказ до вызова боевого ядра оставляет предыдущий `last_result`, как до декомпозиции.
+
+---
+
 ## Отладка (`scenes/debug/`)
 
 ### `dungeon_preview.tscn` + `dungeon_preview.gd`
 
-Главная сцена проекта: просмотрщик данжа.
+Главная сцена проекта: просмотрщик данжа и играбельный превью-бой.
 
 - **Что делает:**
   - генерирует данж и рисует текущую комнату;
-  - строит её коллизии;
-  - водит тестового героя;
-  - переходит между комнатами через двери;
-  - рисует миникарту графа и информацию о комнате и герое.
+  - строит её коллизии и навмеш;
+  - водит отряд из 3 героев (`data/heroes/party_default.tres`) через общий `DamageSystem`/`StatusConfig`/`HitRegistry`: `HeroInputNode` драйвит `PartyController`, каждый герой получает `CombatHeroView`, видим только активный;
+  - спавнит 3 `BasicEnemy` (`data/enemies/basic_enemy.tres`) на проходимых клетках не ближе 4 клеток к точке входа; мёртвые враги усыхают и исчезают;
+  - атака героя — короткоживущая дуга-`Hitbox2D` перед героем, скилл — мгновенный круг вокруг него; обе живут несколько физических тактов и считаются через общий `HitRegistry`; попадания отбрасывают цель (дистанции героя — в `data/heroes/hero_default.tres`, 0,8/1,2 м; удар врага берёт свою дистанцию из `EnemyDefinition.attack_knockback`, 0,5 м);
+  - при гибели активного героя управление автоматически переходит к следующему живому;
+  - переходит между комнатами через двери, пересобирая бой (спавн врагов, позиции героев);
+  - рисует отладочный HUD: панель отряда (имя, HP, статусы), строку кулдаунов и числа живых врагов, миникарту графа, информацию о комнате и герое, FPS и время кадра;
+  - трясёт камеру при потере HP героем (отключается `--no-shake`).
 - **Клавиши:**
   - `WASD` — ходьба;
+  - `ЛКМ` — атака, `ПКМ` — скилл, `Space` — рывок;
+  - `1/2/3` — прямой свап героя, крестовина вверх/вниз — свап по кругу;
   - `F` — камера за героем;
   - `R` — новый seed;
   - `B` — биом;
@@ -430,8 +715,20 @@ tools/recolor_hills.py                     перекраска обрывов �
   - `--hero=x,y`;
   - `--follow`;
   - `--overlay`;
-  - `--screenshot=файл.png` — снять кадр и выйти.
-- Внутренний класс `Minimap` рисует граф комнат.
+  - `--no-shake` — выключить тряску камеры;
+  - `--screenshot=файл.png` — снять кадр и выйти (в headless пропускается с предупреждением).
+- Внутренние классы: `Minimap` (рисует граф комнат), `Strike` (жизненный цикл транзитного хитбокса), `DyingEnemy` (усыхание трупа).
+
+### `combat_hero_view.gd` — `CombatHeroView` (`CharacterBody2D`)
+
+Сцена-адаптер, связывающий один слот `PartyController` с комнатой.
+
+- **`bind(state, controller)`** — привязать `HeroCombatState` и `HeroActionController`; хёртбокс героя (`Hurtbox2D`) несёт его `CombatantState`.
+- **`enter_room(room_map, local_pixels_per_meter, cell)`** — поставить героя в центр клетки и синхронно снапнуть вид.
+- Каждый физический такт зеркалит мировую позицию контроллера (метры) в пиксели через `move_and_slide` (стены `RoomCollision`), а результат с clamp'ом возвращает в `controller.position` — симуляция стартует следующий такт с реальной позиции (рывки тоже упираются в стены). Приоритет обработки 1: вид двигается после `HeroInputNode`, уже оттикавшего отряд.
+- Виден только активный герой; карманные герои скрыты, но продолжают тикать через `PartyController`. Спрайт — 4 направления по 4 кадра из Sprout Lands; при потере HP — вспышка, при смерти — серый кадр.
+- Внутренний класс `HeroProxy` (`Node2D`): стенд-ин «позиция + боевое состояние героя», за которым следят `BasicEnemy` (свойство `combatant_state`). Активный вид присваивает прокси себя, поэтому враги автоматически перенацеливаются при свапе.
+- **`cell()`**, **`meters()`**, **`height`** — клетка под ногами, позиция в метрах и высота для затухания пропсов.
 
 ### `room_debug_overlay.gd` — `RoomDebugOverlay` (`Node2D`)
 
@@ -450,7 +747,7 @@ tools/recolor_hills.py                     перекраска обрывов �
 
 ### `test_hero.gd` — `TestHero` (`CharacterBody2D`)
 
-Отладочный персонаж. Не путать с будущим контроллером отряда.
+Отладочный персонаж для физических проверок данжа (сейчас — `test_room_walk.gd`). Боевой превью-бой ходит через `CombatHeroView`.
 
 - **Параметры:**
   - `speed` — 5 м/с;
@@ -502,6 +799,46 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_room_walk.gd -- --s
 
 `--fixed-fps` гоняет физику без ожидания реального времени.
 
+### `test_actor_id_allocator.gd`
+
+Проверяет последовательную выдачу ID, непрерывные блоки, отсутствие повторного использования и настраиваемый первый ID.
+
+```bash
+godot --headless --path . -s res://tests/test_actor_id_allocator.gd
+```
+
+### `test_camera.gd`
+
+Проверяет, что в режиме слежения видимая область камеры не выходит за границы комнаты, включая крайние позиции героя, зум и комнаты меньше окна.
+
+```bash
+godot --headless --path . -s res://tests/test_camera.gd
+```
+
+### `test_damage_calculator.gd`
+
+Проверяет базовый урон, порядок модификаторов, типы урона, ограничения отрицательных значений и защиты, повторное использование `DamageResult`.
+
+```bash
+godot --headless --path . -s res://tests/test_damage_calculator.gd
+```
+
+### `benchmark_damage_calculator.gd`
+
+Синтетический бенчмарк полного конвейера урона: прогрев, несколько серий, медианная скорость и время одного вызова. Запрос и результат переиспользуются, как предполагает горячий путь. Это замер без столкновений, модификаторов сущностей, сети и отображения, а не FPS игры.
+
+```bash
+godot --headless --path . -s res://tests/benchmark_damage_calculator.gd -- --iterations=1000000 --rounds=5
+```
+
+### `benchmark_modifiers.gd`
+
+Синтетический бенчмарк конвейера модификаторов: полная пересборка статов, кэшированный `get_stats`, заполнение запроса и расчёт, условные модификаторы на попадании через `DamageSystem.deal`. Контрольные значения проверяются после каждой серии, так что бенчмарк одновременно сторожит математику.
+
+```bash
+godot --headless --path . -s res://tests/benchmark_modifiers.gd -- --iterations=100000 --rounds=5
+```
+
 ### `test_biome_import.gd`
 
 Проверка импортёра.
@@ -514,6 +851,156 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_room_walk.gd -- --s
 ```bash
 godot --headless --path . -s res://tests/test_biome_import.gd
 ```
+
+### `test_room_navigation.gd`
+
+Проверяет навмеш через настоящий `NavigationServer2D` на сгенерированных комнатах:
+
+- центр достигает каждой двери по навигационному пути, как и по сетке;
+- через обрыв путь на навмеше есть ровно тогда, когда его находит `RoomMap.find_path`/`can_step`;
+- каждый блок лестницы соединяет верхнюю и нижнюю клетку на навмеше;
+- каждый навигационный путь проверяется выборкой по маршруту: все клетки проходимы, все пересечённые рёбра удовлетворяют `can_step` (с учётом легальных проходов ровно по вершине сетки).
+
+```bash
+godot --headless --path . -s res://tests/test_room_navigation.gd -- --seeds=3
+```
+
+Без `--fixed-fps`: с ним навигационный сервер не успевает синхронизировать регионы, и меши оказываются пустыми. Тест ждёт итераций сервера через `map_force_update`.
+
+### `test_basic_enemy.gd`
+
+Поведенческие проверки `BasicEnemy` с инжектированным `DamageSystem` против боевого состояния заглушки-героя на ровной комнате:
+
+- вне `detection_range` стоит в `IDLE`;
+- внутри догоняет (`CHASE`) и сокращает дистанцию;
+- `TELEGRAPH` неподвижен и без урона весь замах;
+- после `telegraph_duration` ровно один удар с значениями из `data/enemies/basic_enemy.tres` (урон HP, poise, тип `PHYSICAL`);
+- между ударами выдерживается `attack_cooldown`;
+- герой без `combatant_state` и враг без `damage_system` не роняют тест (удар — no-op);
+- отбрасывание: снос на полную дистанцию за 0,12 с, скольжение сквозь стан, упор в стену (кламп у стены, а не проход сквозь неё).
+- два врага с общим ресурсом имеют независимые runtime-компоненты и сброс при входе в комнату;
+- обработчик урона видит `TELEGRAPH` до начала cooldown; промах до `deal()` не очищает предыдущий результат.
+
+```bash
+godot --headless --fixed-fps 60 --path . -s res://tests/test_basic_enemy.gd
+```
+
+`--fixed-fps` гоняет физику без ожидания реального времени — тайминги состояний считаются кадрами.
+
+### `test_enemy_brain.gd`
+
+Чистые проверки `EnemyBrain`: границы дистанций, точный такт удара и перехода в cooldown, восстановление после промаха, пауза, сброс и независимость экземпляров. Игровые узлы и физические кадры не нужны.
+
+```bash
+godot --headless --path . -s res://tests/test_enemy_brain.gd
+```
+
+### `test_defense_formula.gd`
+
+Проверяет `DefenseFormula`: ноль, положительная и отрицательная защита, пределы диапазона 0–2, монотонность, вырожденная константа и интеграцию с калькулятором урона.
+
+```bash
+godot --headless --path . -s res://tests/test_defense_formula.gd
+```
+
+### `test_modifiers.gd`
+
+Проверяет `ModifierSet` и `ModifierDefinition`: ленивую пересборку статов, стаки и потолок, повторное наложение без стаков, истечение длительности, стабильный порядок, условия по статусу цели и порогу HP, смешанные операции без двойного применения, хук `after_damage`, изоляцию владельцев.
+
+```bash
+godot --headless --path . -s res://tests/test_modifiers.gd
+```
+
+### `test_damage_system.gd`
+
+Проверяет `DamageSystem`: прямые попадания и фактический урон, смерть, отклонение мёртвых/неуязвимых/союзных целей, истечение i-frames, poise-стаггер, реген poise, хитстоп, наложение статусов атакой, уведомления `after_damage`, усиление от кровотечения, убийства DoT и атрибуцию источника, отбрасывание (полная дистанция за 0,12 с, отказ для DoT/i-frames/добивающего удара и при нулевой дистанции или направлении).
+
+```bash
+godot --headless --path . -s res://tests/test_damage_system.gd
+```
+
+### `test_statuses.gd`
+
+Проверяет `StatusSet` по значениям GDD: стаки, потолки и обновление длительности, каденцию и объединение DoT, типы урона DoT (горение — магический, яд — физический), полную длительность тиков, охлаждение и заморозку на 10 стаках, обновление стана, параметры кровотечения.
+
+```bash
+godot --headless --path . -s res://tests/test_statuses.gd
+```
+
+### `test_hit_registry.gd`
+
+Проверяет правила повторных попаданий `HitRegistry`: one-shot атаки, лимиты попаданий, кулдауны в боевых тактах, неограниченные попадания, изоляцию по экземплярам атаки и целям, защиту от двойного попадания в один такт, очистку.
+
+```bash
+godot --headless --path . -s res://tests/test_hit_registry.gd
+```
+
+### `test_hitboxes.gd`
+
+Интеграционные проверки доставки урона на настоящих пересечениях `Area2D`: хитбокс → хёртбокс, фильтр фракций и самопопаданий, проверки i-frames и смерти через `DamageSystem`, правила повторов `HitRegistry` на физических тактах, блокировку повторного входа, очистку регистра при `end_attack()`/освобождении узла, мгновенный AoE shape-запросами.
+
+```bash
+godot --headless --fixed-fps 60 --path . -s res://tests/test_hitboxes.gd
+```
+
+### `test_handshake_codec.gd`
+
+Проверяет round-trip всех сообщений handshake и отказ на пустой, обрезанный, oversized-пакет, неверный magic, неизвестный тип, лишние байты и невалидные строки.
+
+```bash
+godot --headless --path . -s res://tests/test_handshake_codec.gd
+```
+
+### `test_loopback_transport.gd`
+
+Проверяет отложенные connect/disconnect-события, доставку байтов в обе стороны только после `poll()`, копирование исходного буфера, адресацию, отказ неизвестному peer и запрет отправки после `close()`.
+
+```bash
+godot --headless --path . -s res://tests/test_loopback_transport.gd
+```
+
+### `test_hero_combat.gd`
+
+Фиксотактовые проверки `HeroCombatState` + `HeroActionController` на значениях `data/heroes/hero_default.tres`: ручная атака (20 физического, перезарядка 0,35 с, автоатаки нет), движение и facing, каст скилла (40 магического, кулдаун 3 с), рывок (3 м / 0,18 с, i-frames, кулдаун 0,8 с), рывок по facing без ввода, dash-cancel перезарядки атаки, смерть, регистрацию действий `HeroInput`, отбрасывание (перекрывает движение по намерению, i-frames рывка блокируют толчок, снос складывается с бегущим рывком, карманного героя тоже сносит).
+
+```bash
+godot --headless --path . -s res://tests/test_hero_combat.gd
+```
+
+### `test_party_controller.gd`
+
+Проверяет `PartyController` на `data/heroes/party_default.tres`: ровно 3 героя, тикание карманных кулдаунов при неизменном HP, кулдаун свапа 1 с, запрет свапа на мёртвого, обход next/prev с пропуском мёртвых, свап во время рывка (рывок и i-frames продолжаются в кармане), отмену незаконченного скилла без траты кулдауна, отказ рывка во время скилла.
+
+```bash
+godot --headless --path . -s res://tests/test_party_controller.gd
+```
+
+### `test_remote_hero_view.gd`
+
+Проверяет применение снапшота к `RemoteHeroView`, перевод метров в пиксели, скрытие неактивного героя и отсутствие физического тела, коллизий, хёртбокса и обратной записи в контроллер/HP.
+
+```bash
+godot --headless --path . -s res://tests/test_remote_hero_view.gd
+```
+
+### `test_combat_preview.gd`
+
+Интеграционный тест играбельного превью-боя: инстанцирует настоящую `dungeon_preview.tscn` и гоняет её физику.
+
+- зарегистрированы все действия `HeroInput`;
+- отряд из 3 героев и враги комнаты на общем `DamageSystem`/`StatusConfig`; враги следят за `HeroProxy`, навмеш построен;
+- движение через `Input.action_press` согласовано с видом (`CombatHeroView`);
+- ручная атака через транзитный `Hitbox2D` + `HitRegistry` + хёртбокс врага снимает ровно 20 HP, телеграф врага не наносит урон раньше времени;
+- скилл (40 магического, кулдаун стартует после выстрела) и рывок (3 м, кулдаун бежит);
+- отбрасывание интеграционно: удар героя сдвигает врага ровно на дистанцию из данных по направлению хитбокс → хёртбокс, толчок в стену упирается в неё (кламп у «стена − радиус», без прохода сквозь), удар врага несёт свою дистанцию отбрасывания;
+- свап и карманные кулдауны, автосвап после гибели активного героя от телеграфа врага;
+- мёртвые враги исчезают; переход в соседнюю комнату пересобирает бой.
+
+```bash
+godot --headless --fixed-fps 60 --path . -s res://tests/test_combat_preview.gd
+```
+
+`--fixed-fps` гоняет физику без ожидания реального времени. Тест сдерживает фоновых врагов станом, чтобы они не мешали проверяемым.
 
 ---
 

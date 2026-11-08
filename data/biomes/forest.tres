@@ -1,11 +1,11 @@
-[gd_resource type="Resource" script_class="BiomeData" format=3]
+[gd_resource type="Resource" script_class="BiomeData" format=3 uid="uid://cg1jpctyywx6s"]
 
-[ext_resource type="Script" path="res://src/dungeon/prop_def.gd" id="1_2kcx4"]
+[ext_resource type="Script" uid="uid://brl02yr41avst" path="res://src/dungeon/prop_def.gd" id="1_2kcx4"]
 [ext_resource type="Resource" path="res://data/props/tree_big.tres" id="2_qbkdq"]
 [ext_resource type="Resource" path="res://data/props/tree_fruit.tres" id="3_v4fcn"]
 [ext_resource type="Resource" path="res://data/props/tree_small.tres" id="4_582wn"]
 [ext_resource type="Resource" path="res://data/props/bush.tres" id="5_0fhd4"]
-[ext_resource type="Script" path="res://src/dungeon/prop_rule.gd" id="6_axxst"]
+[ext_resource type="Script" uid="uid://cgd8cimr6bv8x" path="res://src/dungeon/prop_rule.gd" id="6_axxst"]
 [ext_resource type="Resource" path="res://data/props/bush_berry.tres" id="7_gg57d"]
 [ext_resource type="Resource" path="res://data/props/stump.tres" id="8_2dhnt"]
 [ext_resource type="Resource" path="res://data/props/log.tres" id="9_0avys"]
@@ -15,8 +15,8 @@
 [ext_resource type="Resource" path="res://data/props/flower_pink.tres" id="13_005t4"]
 [ext_resource type="Resource" path="res://data/props/rock_small.tres" id="14_eedph"]
 [ext_resource type="Resource" path="res://data/props/lily_pad.tres" id="15_fuf42"]
-[ext_resource type="Script" path="res://src/dungeon/biome_data.gd" id="16_23ltr"]
-[ext_resource type="Resource" path="res://data/themes/meadow.tres" id="17_nbifi"]
+[ext_resource type="Script" uid="uid://hn4epr0ts4l0" path="res://src/dungeon/biome_data.gd" id="16_23ltr"]
+[ext_resource type="Resource" uid="uid://dpqnegm42bcj5" path="res://data/themes/meadow.tres" id="17_nbifi"]
 
 [sub_resource type="Resource" id="Resource_67o0g"]
 script = ExtResource("6_axxst")

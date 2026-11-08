@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="HeroDefinition" format=3 uid="uid://cexn1c10ue558"]
+
+[ext_resource type="Script" uid="uid://bd6ghddx6phb0" path="res://src/heroes/hero_definition.gd" id="1"]
+[ext_resource type="Script" uid="uid://ct0sm4ludox8d" path="res://src/combat/attack_definition.gd" id="2"]
+[ext_resource type="Script" uid="uid://bt0totpfjojvl" path="res://src/combat/status_application.gd" id="2_8bge7"]
+
+[sub_resource type="Resource" id="attack"]
+script = ExtResource("2")
+id = &"hero_attack"
+base_damage = 20.0
+poise_damage = 20.0
+knockback_distance = 0.8
+
+[sub_resource type="Resource" id="skill"]
+script = ExtResource("2")
+id = &"hero_skill"
+damage_type = 1
+base_damage = 40.0
+poise_damage = 40.0
+knockback_distance = 1.2
+
+[resource]
+script = ExtResource("1")
+attack = SubResource("attack")
+skill = SubResource("skill")
+display_name = "Hero"

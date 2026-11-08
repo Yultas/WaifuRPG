@@ -1,14 +1,14 @@
-[gd_resource type="Resource" script_class="TileTheme" format=3]
+[gd_resource type="Resource" script_class="TileTheme" format=3 uid="uid://dpqnegm42bcj5"]
 
-[ext_resource type="Texture2D" path="res://tiles/Sprout Lands - Sprites - Basic pack/Objects/Wood Bridge.png" id="1_o7e3y"]
-[ext_resource type="Script" path="res://src/dungeon/render/blob_sheet.gd" id="2_tukau"]
-[ext_resource type="Texture2D" path="res://tiles/generated/hills_spring.png" id="3_8838i"]
-[ext_resource type="Texture2D" path="res://tiles/Sprout Lands - Sorry pack/Early Access/Plant update 2/Ground tilesets/Grass_Tile_Layers.png" id="4_kalo7"]
-[ext_resource type="Script" path="res://src/dungeon/render/prop_atlas.gd" id="5_xqt1m"]
+[ext_resource type="Texture2D" uid="uid://fegb6yku4438" path="res://tiles/Sprout Lands - Sprites - Basic pack/Objects/Wood Bridge.png" id="1_o7e3y"]
+[ext_resource type="Script" uid="uid://b4l3qbe22phn2" path="res://src/dungeon/render/blob_sheet.gd" id="2_tukau"]
+[ext_resource type="Texture2D" uid="uid://c5qsm25kfmf7d" path="res://tiles/generated/hills_spring.png" id="3_8838i"]
+[ext_resource type="Texture2D" uid="uid://bghun4yicqcgy" path="res://tiles/Sprout Lands - Sorry pack/Early Access/Plant update 2/Ground tilesets/Grass_Tile_Layers.png" id="4_kalo7"]
+[ext_resource type="Script" uid="uid://b0dv0lvmgejxm" path="res://src/dungeon/render/prop_atlas.gd" id="5_xqt1m"]
 [ext_resource type="Resource" path="res://data/themes/atlases/basic.tres" id="6_jxgfv"]
-[ext_resource type="Texture2D" path="res://tiles/Sprout Lands - Sprites - Basic pack/Tilesets/Tilled_Dirt_Wide_v2.png" id="7_w8yye"]
-[ext_resource type="Script" path="res://src/dungeon/render/tile_theme.gd" id="8_r06cy"]
-[ext_resource type="Texture2D" path="res://tiles/Sprout Lands - Sprites - Basic pack/Tilesets/Water.png" id="9_ejl2f"]
+[ext_resource type="Texture2D" uid="uid://dt4cl353rrs2g" path="res://tiles/Sprout Lands - Sprites - Basic pack/Tilesets/Tilled_Dirt_Wide_v2.png" id="7_w8yye"]
+[ext_resource type="Script" uid="uid://d3rtqc2x2x2v4" path="res://src/dungeon/render/tile_theme.gd" id="8_r06cy"]
+[ext_resource type="Texture2D" uid="uid://8glojno6xyew" path="res://tiles/Sprout Lands - Sprites - Basic pack/Tilesets/Water.png" id="9_ejl2f"]
 
 [sub_resource type="Resource" id="Resource_02pfv"]
 script = ExtResource("2_tukau")
