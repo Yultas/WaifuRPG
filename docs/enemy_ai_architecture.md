@@ -14,14 +14,14 @@
 
 Источники: [BasicEnemy](../src/enemies/basic_enemy.gd), [EnemyDefinition](../src/enemies/enemy_definition.gd), [RoomNavigation](../src/enemies/room_navigation.gd), [просмотрщик](../scenes/debug/dungeon_preview.gd), [CombatHeroView](../scenes/debug/combat_hero_view.gd), [боевое состояние](../src/combat/combatant_state.gd), [DamageSystem](../src/combat/damage_system.gd), [ActorIdAllocator](../src/core/actor_id_allocator.gd).
 
-- После выделения R1 `BasicEnemy` — сборка `CharacterBody2D` с собственными `EnemyBrain`, `EnemyPerception`, `EnemyNavigation`, `EnemyMeleeAttack`. Чистый автомат хранит состояния `IDLE`, `CHASE`, `TELEGRAPH`, `COOLDOWN`; тело сохраняет явный `tick()`, физику, представление и регистрацию `CombatantState`. Общего фазового такта комнаты ещё нет.
-- Враг принимает список узлов героев. `EnemyPerception.select_target()` каждый такт выбирает ближайшего живого кандидата с `is_visible_in_tree()`, при равной дистанции — меньший `actor_id`. Это видимость узла в дереве сцены, **не** прямая видимость через геометрию.
+- После R1 `BasicEnemy` — сборка `CharacterBody2D` с собственными `EnemyBrain`, `EnemyPerception`, `EnemyNavigation`, `EnemyMeleeAttack`. На R2 preview переключён на `prepare_tick`/`decide_tick`/`plan_tick`/`move_tick`/`execute_tick`; полный `tick()` сохранён для одиночных тестов. Тело владеет физикой, представлением и регистрацией `CombatantState`, чистый автомат — четырьмя состояниями и таймерами.
+- `EnemyRoomContext` захватывает значения актёров в `EnemyRoomSnapshot`, хранит tick/epoch и отдельный реестр разрешения ID. Игровая симуляция выбирает ближайшего живого доступного героя по одному снимку до движения всей группы; равенство разрешает меньший `actor_id`. Видимость пока означает `is_visible_in_tree()`, **не** прямую видимость через геометрию; standalone-фасад сохраняет список узлов-кандидатов.
 - `NavigationAgent2D` строит путь, тело выполняет `move_and_slide()`. Avoidance выключен; динамических физических столкновений между врагами нет.
 - `RoomNavigation` строится из проходимых клеток и разрешённых переходов `RoomMap`. [RoomCollision](../src/dungeon/physics/room_collision.gd) отдельно строит физические стены и основания пропсов по уровням рельефа.
 - `DamageSystem` владеет расчётом и применением урона. Его `flush()` обрабатывает ограниченную очередь вторичных попаданий; это **не** общая очередь всех атак комнаты. `deal()` сам по себе не запрещает удар от мёртвого источника — исполнитель прямой атаки обязан проверить источник.
 - `ActorIdAllocator` выдаёт монотонные ID на забег до регистрации бойца. Нельзя вводить второй независимый счётчик актёров во враге.
 - `CombatantState.tick()` продвигает статусы, модификаторы и боевые счётчики. Отбрасывание читается до уменьшения его счётчика и работает при запрете действий.
-- Фактический порядок preview: ввод и отряд → враги и попадания → физическая синхронизация `CombatHeroView`. Поэтому координаты `HeroProxy`, читаемые врагом, могут относиться к предыдущему такту.
+- Порядок preview после R2: ввод и отряд → физическая синхронизация героя/proxy → боевые тики врагов → общий снимок → решения всех → планы всех → движение всех → атаки и flush → граница комнаты. Контекст группового координатора, LOS, память и новые политики движения ещё не реализованы. Проверки R2 и результаты приёмки перечислены в [roadmap](enemy_ai_roadmap.md).
 
 ### 1.2 Описано пользователем, но не подтверждено в этой копии
 

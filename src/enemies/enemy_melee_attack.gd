@@ -21,11 +21,12 @@ func configure(definition: EnemyDefinition) -> void:
 ## A pre-deal no-op leaves last_result unchanged, including after a previous hit.
 func strike(damage_system: DamageSystem, combat: CombatantState,
 		perception: EnemyPerception, definition: EnemyDefinition, map: RoomMap,
-		parent: Node, position: Vector2, pixels_per_meter: float, level: int) -> void:
-	if damage_system == null or combat == null:
+		parent: Node, position: Vector2, pixels_per_meter: float, level: int,
+		expected_actor_id: int = -1) -> void:
+	if damage_system == null or combat == null or not combat.can_act():
 		return
 	var target := perception.target_combat_state()
-	if target == null:
+	if target == null or (expected_actor_id != -1 and target.actor_id != expected_actor_id):
 		return
 	if perception.distance_m(parent, position, pixels_per_meter) > definition.attack_range:
 		return

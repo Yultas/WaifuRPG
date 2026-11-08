@@ -4,6 +4,9 @@ extends RefCounted
 ## coordinate conversion and combat-state lookup preserve the baseline target policy.
 
 var target: Node2D
+var selected_actor_id := -1
+var captured_position_m := Vector2.ZERO
+var captured_distance_m := INF
 var _heroes: Array[Node2D] = []
 
 
@@ -33,6 +36,21 @@ func select_target(parent: Node, position: Vector2, pixels_per_meter: float) -> 
 			best_distance = distance
 			best_actor_id = actor_id
 	target = best
+
+
+## Selects exclusively from captured values; adapters are resolved separately for delivery.
+func select_snapshot(frame: EnemyRoomSnapshot, position_m: Vector2) -> void:
+	selected_actor_id = -1
+	captured_distance_m = INF
+	for sample: EnemyActorSample in frame.actors:
+		if not sample.alive or not sample.targetable or sample.faction != CombatTypes.Faction.HERO:
+			continue
+		var distance := position_m.distance_to(sample.position_m)
+		if selected_actor_id == -1 or distance < captured_distance_m \
+				or (is_equal_approx(distance, captured_distance_m) and sample.actor_id < selected_actor_id):
+			selected_actor_id = sample.actor_id
+			captured_position_m = sample.position_m
+			captured_distance_m = distance
 
 
 ## Target position in the enemy parent's local pixels, or zero without a target.

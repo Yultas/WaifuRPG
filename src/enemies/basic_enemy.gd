@@ -48,6 +48,23 @@ var last_result: DamageResult:
 	get:
 		return _melee.last_result
 
+## Measured displacement after wall clamping, in meters per second.
+var actual_velocity_mps := Vector2.ZERO
+var _phase_context: EnemyRoomContext
+var _phase_frame: EnemyRoomSnapshot
+var _phase_tick := -1
+var _phase_epoch := -1
+var _participates := false
+var _decided := false
+var _planned := false
+var _moved := false
+var _executed := false
+var _intent: EnemyBrain.Intent = EnemyBrain.Intent.NONE
+var _knockback := Vector2.ZERO
+var _goal_m := Vector2.ZERO
+var _target_actor_id := -1
+var _strike_pending := false
+
 var _brain := EnemyBrain.new()
 var _perception := EnemyPerception.new()
 var _navigation := EnemyNavigation.new()
@@ -140,39 +157,133 @@ func _configure_combat(actor_id: int) -> void:
 	_melee.configure(def)
 
 
-## Advances the enemy by one fixed tick. The room simulation owns the call order.
+## Compatibility facade for standalone callers. Preview uses the guarded phases below.
 func tick() -> void:
+	_prepare_combat()
 	_perception.select_target(get_parent(), position, pixels_per_meter)
-	# Knockback is forced displacement, not state machine motion: it keeps sliding
-	# the enemy even while stun/freeze/hitstop freeze the machine, so a staggered
-	# enemy is still visibly pushed. Read before combat.tick() decrements
-	# knockback_ticks; move_and_slide keeps the slide out of the walls.
-	var knockback := Vector2.ZERO
-	if combat != null and combat.alive:
-		knockback = combat.knockback_offset()
+	_choose_intent(_perception.distance_m(get_parent(), position, pixels_per_meter))
+	_goal_m = _perception.target_local(get_parent()) / pixels_per_meter
+	_plan_velocity()
+	_apply_movement()
+	_consume_strike()
+
+
+## Caches forced displacement BEFORE ticking combat; newly dead bodies never move.
+func prepare_tick(context: EnemyRoomContext) -> void:
+	if _phase_context == context and _phase_tick == context.tick and _phase_epoch == context.epoch:
+		return
+	_phase_context = context
+	_phase_tick = context.tick
+	_phase_epoch = context.epoch
+	_phase_frame = null
+	_participates = false
+	_decided = false
+	_planned = false
+	_moved = false
+	_executed = false
+	_strike_pending = false
+	_prepare_combat()
+
+
+## Every enemy observes this same value-only frame before any body moves.
+func decide_tick(context: EnemyRoomContext) -> void:
+	if not _phase_matches(context) or _decided or not context.is_current(context.snapshot):
+		return
+	_decided = true
+	_phase_frame = context.snapshot
+	var own := _phase_frame.actor(combat.actor_id) if combat != null else null
+	if own == null or context.resolve_actor(combat.actor_id, _phase_frame) != self:
+		return
+	_participates = true
+	_perception.select_snapshot(_phase_frame, own.position_m)
+	_target_actor_id = _perception.selected_actor_id
+	_goal_m = _perception.captured_position_m
+	_perception.target = context.resolve_actor(_target_actor_id, _phase_frame)
+	_choose_intent(_perception.captured_distance_m)
+
+
+func plan_tick(context: EnemyRoomContext) -> void:
+	if not _frame_matches(context) or not _participates or not _decided or _planned:
+		return
+	_planned = true
+	_plan_velocity()
+
+
+func move_tick(context: EnemyRoomContext) -> void:
+	if not _frame_matches(context) or not _planned or _moved:
+		return
+	_moved = true
+	_apply_movement()
+
+
+## Consumes the attempt before calling damage handlers (which may reenter).
+## Delivery uses current geometry and the current-tick selected actor, not a new selection.
+func execute_tick(context: EnemyRoomContext) -> void:
+	if not _frame_matches(context) or not _moved or _executed:
+		return
+	_executed = true
+	_perception.target = context.resolve_actor(_target_actor_id, _phase_frame)
+	_consume_strike(_target_actor_id)
+
+
+func _phase_matches(context: EnemyRoomContext) -> bool:
+	return _phase_context == context and _phase_tick == context.tick and _phase_epoch == context.epoch
+
+
+func _frame_matches(context: EnemyRoomContext) -> bool:
+	return _phase_matches(context) and context.is_current(_phase_frame)
+
+
+func _prepare_combat() -> void:
+	_intent = EnemyBrain.Intent.NONE
+	_strike_pending = false
+	_knockback = combat.knockback_offset() if combat != null and combat.alive else Vector2.ZERO
 	if combat != null:
 		combat.tick(damage_system)
-		if not combat.can_act():
-			velocity = knockback * float(TICKS_PER_SECOND) * pixels_per_meter
-			if not velocity.is_zero_approx():
-				move_and_slide()
-			return
+		if not combat.alive:
+			_knockback = Vector2.ZERO
+			velocity = Vector2.ZERO
+			actual_velocity_mps = Vector2.ZERO
+
+
+func _choose_intent(distance_m: float) -> void:
 	var def := _def()
-	var intent := _brain.tick(_perception.distance_m(get_parent(), position, pixels_per_meter),
-			def.detection_range, def.attack_range, roundi(def.telegraph_duration * TICKS_PER_SECOND))
+	_intent = _brain.tick(distance_m, def.detection_range, def.attack_range,
+			roundi(def.telegraph_duration * TICKS_PER_SECOND), combat == null or combat.can_act())
+	_strike_pending = _intent == EnemyBrain.Intent.STRIKE
+
+
+func _plan_velocity() -> void:
 	velocity = Vector2.ZERO
-	match intent:
-		EnemyBrain.Intent.CHASE:
-			velocity = _navigation.chase_velocity(_agent, _perception.target, get_parent(),
-					position, def.speed, pixels_per_meter)
-		EnemyBrain.Intent.STRIKE:
-			_melee.strike(damage_system, combat, _perception, def, map, get_parent(),
-					position, pixels_per_meter, level)
-			_brain.finish_strike(roundi(_def().attack_cooldown * TICKS_PER_SECOND))
-	if not knockback.is_zero_approx():
-		velocity += knockback * float(TICKS_PER_SECOND) * pixels_per_meter
-	move_and_slide()
+	if combat != null and not combat.alive:
+		return
+	if _intent == EnemyBrain.Intent.CHASE:
+		velocity = _navigation.chase_velocity_to(_agent, _goal_m * pixels_per_meter,
+				get_parent(), position, _def().speed, pixels_per_meter)
+	velocity += _knockback * float(TICKS_PER_SECOND) * pixels_per_meter
+
+
+func _apply_movement() -> void:
+	var before := position
+	if combat == null or combat.alive:
+		move_and_slide()
+	else:
+		velocity = Vector2.ZERO
+	actual_velocity_mps = (position - before) / pixels_per_meter * float(TICKS_PER_SECOND)
 	_update_level()
+	# Child Area2D transforms must reach the physics server before this tick's queries.
+	for child: Node in get_children():
+		if child is Hurtbox2D:
+			child.force_update_transform()
+
+
+func _consume_strike(expected_actor_id: int = -1) -> void:
+	if not _strike_pending:
+		return
+	_strike_pending = false
+	_melee.strike(damage_system, combat, _perception, _def(), map, get_parent(),
+			position, pixels_per_meter, level, expected_actor_id)
+	_brain.finish_strike(roundi(_def().attack_cooldown * TICKS_PER_SECOND))
 
 
 func _update_level() -> void:

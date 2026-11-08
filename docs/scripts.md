@@ -198,7 +198,7 @@ Runtime одного модификатора на бойце: ссылка на
 
 ### `hitbox_2d.gd` — `Hitbox2D` (`Area2D`)
 
-Активная область атаки (ближний удар, снаряд, взрыв). Несёт `attack`, `source` (`CombatantState`), уникальный `attack_instance_id` (0 — без учёта повторов), `damage_scale`, боевой `combat_tick`. Владелец комнаты вызывает **`tick()`**: хитбокс перепроверяет пересечения с хёртбоксами, фильтрует фракции, мёртвых и i-frames, прогоняет повторы через `HitRegistry` и отдаёт попадания в `DamageSystem.deal`, передавая направление от хитбокса к хёртбоксу как направление отбрасывания. Автономного `_physics_process` нет. Мгновенный AoE — `deal_aoe(shape, transform, space_state)` и статический `query_hurtboxes()`. `end_attack()` снимает регистрацию и отключает мониторинг, поэтому последующий явный `tick()` уже не наносит урон.
+Активная область атаки (ближний удар, снаряд, взрыв). Несёт `attack`, `source` (`CombatantState`), уникальный `attack_instance_id` (0 — без учёта повторов), `damage_scale`, боевой `combat_tick`. **`tick()`** сохранён для обычной проверки кешированных пересечений. Фазовая комната вызывает **`tick_current(shape, transform, space_state, simulation_tick)`**: один шаг часов на такт и прямой ограниченный запрос текущей геометрии, без кеша предыдущего обновления. Жертвы обрабатываются по ID; источник повторно проверяется перед каждым попаданием. Оба пути сохраняют фильтрацию фракций, мёртвых и i-frames, общий `HitRegistry` и `DamageSystem.deal`, включая направление отбрасывания. Автономного `_physics_process` нет. Мгновенный AoE — `deal_aoe(shape, transform, space_state)` и статический `query_hurtboxes()`. `end_attack()` снимает регистрацию и отключает дальнейшую доставку.
 
 ### `hurtbox_2d.gd` — `Hurtbox2D` (`Area2D`)
 
@@ -259,7 +259,7 @@ Runtime одного модификатора на бойце: ссылка на
 
 ### `hero_input_node.gd` — `HeroInputNode` (`Node`)
 
-Раз в `_physics_process` читает `InputMap`, создаёт `HeroInputFrame` с монотонным `sequence` и испускает `frame_ready(frame)`. Не владеет отрядом и не вызывает `tick()`. В `dungeon_preview` владелец симуляции принимает сигнал, вызывает `PartyController.apply_input(frame)` и затем `tick()`.
+Раз в `_physics_process` читает `InputMap`, создаёт `HeroInputFrame` с монотонным `sequence` и испускает `frame_ready(frame)`. Не владеет отрядом и не вызывает `tick()`. В `dungeon_preview` обработчик сигнала сохраняет кадр; фазовый владелец применяет его и вызывает `PartyController.tick()` один раз до синхронизации тела героя и снимка врагов.
 
 ### `remote_hero_view.gd` — `RemoteHeroView` (`Node2D`)
 
@@ -658,7 +658,7 @@ Presentation-only реплика героя для будущего клиент
 
 - **Поля:** `definition: EnemyDefinition`, `map: RoomMap`, `pixels_per_meter`, `level` (уровень клетки под ногами, определяет `collision_mask`), `state` (read-only для наблюдателей), `combat: CombatantState` (read-only, появляется только с `damage_system`), `damage_system: DamageSystem` (инжектится владельцем комнаты), `status_config` (по умолчанию `StatusConfig.new()`), `last_result` — переиспользуемый `DamageResult` последнего удара (read-only).
 - **`enter_room(room_map, local_pixels_per_meter, cell, heroes, actor_id)`** — поставить в центр клетки, задать список героев и зарегистрировать бойца с ID, выданным `ActorIdAllocator`. **`set_targets(heroes)`** меняет список без пересоздания комнаты. **`meters()`**, **`cell()`** — позиция в метрах и клетка под ногами.
-- **`tick()`** — один явный такт: выбирает ближайшего видимого живого героя (равная дистанция → меньший `actor_id`), затем продвигает состояние, урон и движение. Вызывает владелец комнаты; автономного `_physics_process` нет.
+- **`tick()`** — полный такт одиночного врага, сохранённый для standalone-тестов. Preview вызывает только **`prepare_tick(context)`**, **`decide_tick(context)`**, **`plan_tick(context)`**, **`move_tick(context)`**, **`execute_tick(context)`**: каждую фазу всей группе до следующей, с защитой от повторного выполнения по tick/epoch. Автономного `_physics_process` нет.
 - Удар не трогает HP сам: `EnemyMeleeAttack.strike()` отдаёт попадание в `DamageSystem.deal()` с собственным `CombatantState` (ENEMY) и боевым состоянием героя, которое герой обязан отдать через свойство `combatant_state`; направление отбрасывания — от тела врага к герою, дистанция — `definition.attack_knockback`. После телеграфа дистанция и уровень рельефа героя перепроверяются; мёртвых и i-frames отсекает сам `DamageSystem`. Без инжектированного `damage_system` боевого состояния нет и удар — no-op.
 - Стан, заморозка и хитстоп останавливают весь автомат через `CombatantState.can_act()`. Все боевые таймеры — фиксированные 60 Гц такты, а не `delta`.
 - Стены обходятся двояко: `NavigationAgent2D` строит путь по навмешу, `move_and_slide` страхует остатки на слое уровня `RoomCollision`. Логика — в `tick()`, `_process` только рисует состояние (цвет корпуса, кольцо телеграфа).
@@ -675,9 +675,17 @@ Presentation-only реплика героя для будущего клиент
 
 `chase_velocity()` получает принадлежащий телу `NavigationAgent2D` и возвращает скорость в локальных пикселях в секунду, переводя глобальную следующую точку пути через родителя. Хранит направление `facing`, но не перемещает тело и не владеет узлом агента. Avoidance и новая политика перепрокладки не включаются на R1.
 
+На R2 `chase_velocity_to()` принимает захваченную позицию цели в локальных пикселях; игровой план не перечитывает уже изменившуюся позицию узла.
+
 ### `enemy_melee_attack.gd` — `EnemyMeleeAttack` (`RefCounted`)
 
 Владеет собственными `AttackDefinition` и переиспользуемым `DamageResult`. `configure(definition)` копирует параметры физической ближней атаки, не изменяя общий ресурс. `strike()` сохраняет прежние проверки боевого состояния цели, дальности и уровня перед `DamageSystem.deal()`. Отказ до вызова боевого ядра оставляет предыдущий `last_result`, как до декомпозиции.
+
+### Контекст и значения комнаты (`enemy_room_context.gd`, `enemy_room_snapshot.gd`, `enemy_actor_sample.gd`)
+
+`EnemyRoomContext` владеет tick/epoch и отдельным реестром ID → узел. `begin_tick()` начинает новый кадр, `capture_actor()` копирует значения живого актёра, `finish_capture()` публикует общий снимок в порядке ID. `reset_room()` меняет epoch и очищает прежние данные; `is_current()`/`resolve_actor()` отсекают устаревшие кадры и удалённые узлы.
+
+`EnemyRoomSnapshot` содержит tick, epoch и массив `EnemyActorSample`. Значения актёра — ID, позиция в метрах, уровень, радиус, фактическая скорость, живость, доступность и фракция; ссылок на узлы/физические RID в снимке нет. `EnemyPerception.select_snapshot()` выбирает цель по этим значениям, а исполнитель удара проверяет её актуальную геометрию через реестр. Снимок неизменяем по соглашению в пределах фазы.
 
 ---
 
@@ -725,7 +733,7 @@ Presentation-only реплика героя для будущего клиент
 
 - **`bind(state, controller)`** — привязать `HeroCombatState` и `HeroActionController`; хёртбокс героя (`Hurtbox2D`) несёт его `CombatantState`.
 - **`enter_room(room_map, local_pixels_per_meter, cell)`** — поставить героя в центр клетки и синхронно снапнуть вид.
-- Каждый физический такт зеркалит мировую позицию контроллера (метры) в пиксели через `move_and_slide` (стены `RoomCollision`), а результат с clamp'ом возвращает в `controller.position` — симуляция стартует следующий такт с реальной позиции (рывки тоже упираются в стены). Приоритет обработки 1: вид двигается после `HeroInputNode`, уже оттикавшего отряд.
+- **`sync_physics()`** зеркалит позицию контроллера (метры) в пиксели через `move_and_slide` (стены `RoomCollision`), возвращает фактическую позицию в контроллер и обновляет proxy/скорость. При `room_owns_physics = true` фазовая комната вызывает его до снимка, а автономный callback обновляет только представление. Вне этого режима сохранена автономная синхронизация с приоритетом 1. Карманные виды не двигаются и не возвращают свои старые позиции в контроллеры.
 - Виден только активный герой; карманные герои скрыты, но продолжают тикать через `PartyController`. Спрайт — 4 направления по 4 кадра из Sprout Lands; при потере HP — вспышка, при смерти — серый кадр.
 - Внутренний класс `HeroProxy` (`Node2D`): стенд-ин «позиция + боевое состояние героя», за которым следят `BasicEnemy` (свойство `combatant_state`). Активный вид присваивает прокси себя, поэтому враги автоматически перенацеливаются при свапе.
 - **`cell()`**, **`meters()`**, **`height`** — клетка под ногами, позиция в метрах и высота для затухания пропсов.
@@ -893,6 +901,15 @@ godot --headless --fixed-fps 60 --path . -s res://tests/test_basic_enemy.gd
 
 ```bash
 godot --headless --path . -s res://tests/test_enemy_brain.gd
+```
+
+### `test_enemy_tick_order.gd` и `test_enemy_simulation.gd`
+
+Регрессия чтения актуального proxy на том же такте и контракты фазовой комнаты R2: снимок, единичные тики/движение, подготовка смертей, актуальные попадания и границы epoch. Проверка порядка использует прежние API и воспроизводит ошибку на базе до R2.
+
+```bash
+godot --headless --fixed-fps 60 --path . -s res://tests/test_enemy_tick_order.gd
+godot --headless --fixed-fps 60 --path . -s res://tests/test_enemy_simulation.gd
 ```
 
 ### `test_defense_formula.gd`

@@ -168,6 +168,13 @@ func _test_knockback_and_walls() -> void:
 			or not party.states[0].can_act()) and ready < 120:
 		await _frames(1)
 		ready += 1
+	# Fresh shape queries can deliver on the skill's fire tick. Its remaining active
+	# frames must expire before a new scenario teleports another target into the burst.
+	var expiry := 0
+	while not (_preview.get("_strikes") as Array).is_empty() and expiry < 8:
+		await _frames(1)
+		expiry += 1
+	_expect((_preview.get("_strikes") as Array).is_empty(), "knockback setup: previous skill did not expire")
 	_start_guard(null)  # stun every enemy: no chase drift, no telegraphed strike
 	await _frames(2)
 	var enemy: BasicEnemy = null

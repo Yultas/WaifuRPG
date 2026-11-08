@@ -9,7 +9,14 @@ var facing := Vector2.DOWN
 ## are global and are converted exactly once through the parent, as in BasicEnemy.
 func chase_velocity(agent: NavigationAgent2D, target: Node2D, parent: Node,
 		position: Vector2, speed_m_per_second: float, pixels_per_meter: float) -> Vector2:
-	agent.target_position = target.global_position
+	var goal: Vector2 = parent.to_local(target.global_position) if parent != null else target.position
+	return chase_velocity_to(agent, goal, parent, position, speed_m_per_second, pixels_per_meter)
+
+
+## Captured goal in room-local pixels; planning never rereads the target adapter.
+func chase_velocity_to(agent: NavigationAgent2D, goal: Vector2, parent: Node,
+		position: Vector2, speed_m_per_second: float, pixels_per_meter: float) -> Vector2:
+	agent.target_position = parent.to_global(goal) if parent != null else goal
 	var next_local := Vector2.ZERO
 	if parent == null:
 		next_local = agent.get_next_path_position()

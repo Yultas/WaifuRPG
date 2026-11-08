@@ -21,6 +21,7 @@ var registry: HitRegistry
 var combat_tick := 0
 
 var _result := DamageResult.new()
+var _last_simulation_tick := -1
 
 
 func _init() -> void:
@@ -38,9 +39,23 @@ func tick() -> void:
 	combat_tick += 1
 	if not monitoring or attack == null or damage_system == null:
 		return
+	var victims: Array[Hurtbox2D] = []
 	for area: Area2D in get_overlapping_areas():
 		if area is Hurtbox2D:
-			_try_hit(area)
+			victims.append(area)
+	_sort_victims(victims)
+	for hurtbox: Hurtbox2D in victims:
+		_try_hit(hurtbox)
+
+
+## Current-geometry delivery for the phased room, with one clock step per simulation tick.
+func tick_current(shape: Shape2D, transform: Transform2D,
+		space_state: PhysicsDirectSpaceState2D, simulation_tick: int) -> int:
+	if _last_simulation_tick == simulation_tick:
+		return 0
+	_last_simulation_tick = simulation_tick
+	combat_tick += 1
+	return deal_aoe(shape, transform, space_state)
 
 
 ## Stops the attack: removes its registry entries and disables further delivery.
@@ -53,8 +68,12 @@ func end_attack() -> void:
 ## Returns the number of hits actually delivered.
 func deal_aoe(shape: Shape2D, transform: Transform2D,
 		space_state: PhysicsDirectSpaceState2D) -> int:
+	if not monitoring or attack == null or damage_system == null:
+		return 0
 	var delivered := 0
-	for hurtbox: Hurtbox2D in query_hurtboxes(space_state, shape, transform):
+	var victims := query_hurtboxes(space_state, shape, transform)
+	_sort_victims(victims)
+	for hurtbox: Hurtbox2D in victims:
 		if _try_hit(hurtbox):
 			delivered += 1
 	return delivered
@@ -78,6 +97,10 @@ static func query_hurtboxes(space_state: PhysicsDirectSpaceState2D, shape: Shape
 
 
 func _try_hit(hurtbox: Hurtbox2D) -> bool:
+	if not monitoring or damage_system == null or not is_instance_valid(hurtbox):
+		return false
+	if source != null and not source.can_act():
+		return false
 	var target := hurtbox.combatant
 	if attack == null or target == null:
 		return false
@@ -100,6 +123,11 @@ func _try_hit(hurtbox: Hurtbox2D) -> bool:
 			registry.rollback_hit(attack_instance_id, target.actor_id)
 		return false
 	return true
+
+
+func _sort_victims(victims: Array[Hurtbox2D]) -> void:
+	victims.sort_custom(func(a: Hurtbox2D, b: Hurtbox2D) -> bool:
+		return a.actor_id() < b.actor_id())
 
 
 func _cleanup_attack() -> void:

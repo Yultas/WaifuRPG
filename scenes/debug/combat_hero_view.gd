@@ -42,6 +42,9 @@ var level := 0
 var height := 1.0
 ## The pocket hero is hidden and does not sync with the world.
 var active := false
+## Preview owns physical synchronization; standalone views keep their old callback.
+var room_owns_physics := false
+var actual_velocity_mps := Vector2.ZERO
 
 var _sprite: Sprite2D
 var _shape: CollisionShape2D
@@ -56,7 +59,7 @@ var _flash_ticks := 0
 func _init() -> void:
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	collision_layer = 0
-	# After HeroInputNode (-20) and the room simulation (0), so positions are current.
+	# Presentation follows the room simulation; standalone users also synchronize here.
 	process_physics_priority = 1
 	_shape = CollisionShape2D.new()
 	_shape.shape = CircleShape2D.new()
@@ -112,24 +115,35 @@ func combatant_state() -> CombatantState:
 	return hero_state
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if hero_state == null:
 		return
-	if active and controller != null and hero_state.alive:
-		# While the hero sits in the pocket the view stays stale on purpose (the
-		# pocket dash displaces the controller on its own — see the class doc), so
-		# the sync below must run only now, catching the view up in one tick.
-		var target := controller.position * pixels_per_meter
-		velocity = (target - position) * float(Engine.physics_ticks_per_second)
-		move_and_slide()
-		# Wall clamping feeds back into the sim so the next tick starts from the
-		# real position (dashes stop at walls too).
-		controller.position = position / pixels_per_meter
-		if proxy != null:
-			proxy.position = position
-			proxy.combatant_state = hero_state
-		_update_level()
-	_present(_delta)
+	if not room_owns_physics:
+		sync_physics()
+	_present(delta)
+
+
+## Called once after PartyController.tick. Pocket positions never feed back to controllers.
+func sync_physics() -> void:
+	actual_velocity_mps = Vector2.ZERO
+	if not active or controller == null or not hero_state.alive:
+		return
+	var before := position
+	var target := controller.position * pixels_per_meter
+	velocity = (target - position) * float(Engine.physics_ticks_per_second)
+	move_and_slide()
+	controller.position = position / pixels_per_meter
+	actual_velocity_mps = (position - before) / pixels_per_meter * float(Engine.physics_ticks_per_second)
+	_update_level()
+	sync_proxy()
+	_hurtbox.force_update_transform()
+
+
+## Room entry snaps the proxy without performing a second physical movement.
+func sync_proxy() -> void:
+	if active and proxy != null:
+		proxy.position = position
+		proxy.combatant_state = hero_state
 
 
 func _update_level() -> void:

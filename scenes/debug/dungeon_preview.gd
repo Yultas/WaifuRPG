@@ -48,6 +48,13 @@ var _views: Array[CombatHeroView] = []
 var _hero_proxy: CombatHeroView.HeroProxy
 var _enemies: Array[BasicEnemy] = []
 var _attack_serial := 0
+## This node is the sole owner of the authoritative room phase order.
+var _room_context := EnemyRoomContext.new()
+var _pending_input: HeroInputFrame
+var _ticking := false
+var _pending_room: RoomData
+var _pending_entry_dir := -1
+var _pending_generation := false
 ## Run-scoped ids are allocated for the party at startup and for each spawned enemy.
 var _actor_ids := ActorIdAllocator.new()
 
@@ -138,6 +145,7 @@ func _ready() -> void:
 		_renderer.actors.add_child(view)
 		view.bind(_party.states[index], _party.controllers[index])
 		view.proxy = _hero_proxy
+		view.room_owns_physics = true
 		_views.append(view)
 		_party.controllers[index].attack_fired.connect(_on_attack_fired)
 		_party.controllers[index].skill_fired.connect(_on_skill_fired)
@@ -226,6 +234,9 @@ func _ready() -> void:
 
 
 func _generate() -> void:
+	if _ticking:
+		_pending_generation = true
+		return
 	var started := Time.get_ticks_msec()
 	_dungeon = DungeonGenerator.generate(CONFIG, _seed, _biomes[_biome_index])
 	_gen_msec = Time.get_ticks_msec() - started
@@ -235,6 +246,11 @@ func _generate() -> void:
 ## Shows a room. With entry_dir the hero comes in through that door, else it starts at
 ## the room center.
 func _show_room(room: RoomData, entry_dir := -1) -> void:
+	if _ticking:
+		_pending_room = room
+		_pending_entry_dir = entry_dir
+		return
+	_room_context.reset_room()
 	_room = room
 	var map := room.map
 	_renderer.render(map, _dungeon.biome)
@@ -265,6 +281,7 @@ func _show_room(room: RoomData, entry_dir := -1) -> void:
 func _place_party(start: Vector2i) -> void:
 	for view: CombatHeroView in _views:
 		view.enter_room(_room.map, _renderer.local_pixels_per_meter, start)
+	_active_view().sync_proxy()
 
 
 func _spawn_enemies(map: RoomMap, start: Vector2i) -> void:
@@ -345,36 +362,77 @@ func _process(delta: float) -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	if _room == null:
+	if _room == null or _ticking:
 		return
+	_ticking = true
+	_room_context.begin_tick()
+	var input := _pending_input
+	_pending_input = null
+	_party.apply_input(input)
+	_party.tick()
+	_active_view().sync_physics()
+	# Membership and every phase use stable ids, independent of the caller's array order.
+	_enemies.sort_custom(func(a: BasicEnemy, b: BasicEnemy) -> bool:
+		return a.combat.actor_id < b.combat.actor_id)
 	for enemy: BasicEnemy in _enemies:
-		enemy.tick()
+		enemy.prepare_tick(_room_context)
+	_capture_room_frame()
+	for enemy: BasicEnemy in _enemies:
+		enemy.decide_tick(_room_context)
+	for enemy: BasicEnemy in _enemies:
+		enemy.plan_tick(_room_context)
+	# Coordination seam: R2 deliberately retains independent per-enemy plans.
+	for enemy: BasicEnemy in _enemies:
+		enemy.move_tick(_room_context)
+	for enemy: BasicEnemy in _enemies:
+		enemy.execute_tick(_room_context)
 	_tick_strikes()
 	_damage_system.flush()
 	_tick_dying_enemies()
 	if _party.party_alive() and not _party.active_state().alive:
-		# The active hero fell: hand control to the next alive one so the enemy
-		# proxy retargets (request_swap_next skips the dead).
 		_party.request_swap_next()
 	var c := _active_view().cell()
 	if not _room.map.in_bounds(c):
-		# Left the room: only possible through a door.
 		var dir := T.Dir.NORTH if c.y < 0 else T.Dir.SOUTH if c.y >= _room.size.y else T.Dir.WEST if c.x < 0 else T.Dir.EAST
 		var next := _dungeon.neighbor(_room, dir)
 		if next != null:
 			_show_room(next, T.opposite(dir))
-			return
 	if _renderer.props_layer != null:
 		_renderer.props_layer.update_fade(PackedVector2Array([_active_view().position]),
 				_active_view().height * _active_view().pixels_per_meter)
 	_overlay.hero_level = _active_view().level
 	_update_camera()
 	_update_hero_info()
+	_ticking = false
+	_activate_pending_room()
+
+
+func _capture_room_frame() -> void:
+	var view := _active_view()
+	_room_context.capture_actor(_hero_proxy, view.hero_state, view.meters(), view.level,
+			view.hero_state.hero_definition.radius, view.actual_velocity_mps,
+			view.active and _hero_proxy.is_visible_in_tree())
+	for enemy: BasicEnemy in _enemies:
+		_room_context.capture_actor(enemy, enemy.combat, enemy.meters(), enemy.level,
+				enemy.definition.radius, enemy.actual_velocity_mps, enemy.is_visible_in_tree())
+	_room_context.finish_capture()
+
+
+## Room changes requested by input or hit callbacks activate only after the flush.
+func _activate_pending_room() -> void:
+	if _pending_generation:
+		_pending_generation = false
+		_pending_room = null
+		_generate()
+	elif _pending_room != null:
+		var next := _pending_room
+		var entry := _pending_entry_dir
+		_pending_room = null
+		_show_room(next, entry)
 
 
 func _on_hero_input_frame(frame: HeroInputFrame) -> void:
-	_party.apply_input(frame)
-	_party.tick()
+	_pending_input = frame
 
 
 func _active_view() -> CombatHeroView:
@@ -429,7 +487,9 @@ func _spawn_strike(attack: AttackDefinition, origin_m: Vector2, direction: Vecto
 func _tick_strikes() -> void:
 	for index: int in range(_strikes.size() - 1, -1, -1):
 		var strike := _strikes[index]
-		strike.node.tick()
+		var shape_node: CollisionShape2D = strike.node.get_child(0)
+		strike.node.tick_current(shape_node.shape, shape_node.global_transform,
+				strike.node.get_world_2d().direct_space_state, _room_context.tick)
 		strike.ticks -= 1
 		if strike.ticks <= 0:
 			strike.node.end_attack()
