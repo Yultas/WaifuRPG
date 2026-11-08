@@ -86,6 +86,8 @@ var _dying: Array[DyingEnemy] = []
 class Strike:
 	extends RefCounted
 	var node: Hitbox2D
+	var visual: CombatStrikeVisual
+	var lifetime := 0
 	var ticks := 0
 
 
@@ -448,8 +450,8 @@ func _on_hero_deactivated(index: int) -> void:
 	_views[index].active = false
 
 
-## Manual attack: a short-lived melee arc in front of the hero, resolved by the
-## hitbox/hurtbox overlap on the next physics ticks through the shared HitRegistry.
+## Manual attack: a short-lived melee arc in front of the hero. Current-geometry
+## queries resolve hits from the firing tick onward through the shared HitRegistry.
 func _on_attack_fired(attack: AttackDefinition, origin: Vector2, direction: Vector2) -> void:
 	_spawn_strike(attack, origin, direction, 0.9, 0.9, 8)
 
@@ -477,9 +479,14 @@ func _spawn_strike(attack: AttackDefinition, origin_m: Vector2, direction: Vecto
 	if dir == Vector2.ZERO:
 		dir = Vector2.DOWN
 	hitbox.position = (origin_m + dir * forward_m) * _renderer.local_pixels_per_meter
+	var visual := CombatStrikeVisual.new()
+	visual.setup(circle.radius, dir, direction == Vector2.ZERO)
+	hitbox.add_child(visual)
 	_renderer.actors.add_child(hitbox)
 	var strike := Strike.new()
 	strike.node = hitbox
+	strike.visual = visual
+	strike.lifetime = lifetime
 	strike.ticks = lifetime
 	_strikes.append(strike)
 
@@ -491,6 +498,7 @@ func _tick_strikes() -> void:
 		strike.node.tick_current(shape_node.shape, shape_node.global_transform,
 				strike.node.get_world_2d().direct_space_state, _room_context.tick)
 		strike.ticks -= 1
+		strike.visual.present(strike.ticks, strike.lifetime)
 		if strike.ticks <= 0:
 			strike.node.end_attack()
 			strike.node.queue_free()
